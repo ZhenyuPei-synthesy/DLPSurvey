@@ -19,7 +19,7 @@
       "type": "cosmosDB",
       "direction": "out",
       "name": "outputDocument",
-      "databaseName": "SurveyDB",
+      "databaseName": "dlpsurveyDB",
       "collectionName": "Answers",
       "createIfNotExists": true,
       "connectionStringSetting": "CosmosDbConnectionString"
