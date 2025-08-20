@@ -126,7 +126,7 @@ const SurveyForm = ({ surveyData }) => {
                                   className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                 >
                                   <InformationCircleIcon className="w-5 h-5 mr-2" />
-                                  リスクと解答例を表示
+                                  リスクを表示
                                 </button>
                                 {showRisk[item.id] && (
                                   <div className="mt-3 p-4 bg-red-50 border-l-4 border-red-400 text-red-700">
