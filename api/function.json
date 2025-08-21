@@ -5,24 +5,13 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": [
-        "post"
-      ],
+      "methods": ["get"],
       "route": ""
     },
     {
       "type": "http",
       "direction": "out",
       "name": "res"
-    },
-    {
-      "type": "cosmosDB",
-      "direction": "out",
-      "name": "outputDocument",
-      "databaseName": "dlpsurveyDB",
-      "collectionName": "Answers",
-      "createIfNotExists": true,
-      "connectionStringSetting": "CosmosDbConnectionString"
     }
   ]
 }
