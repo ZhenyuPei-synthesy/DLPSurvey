@@ -30,7 +30,7 @@ const SurveyForm = ({ surveyData }) => {
     setSubmissionStatus(null);
 
     try {
-      const response = await fetch('/api/submitAnswer', {
+      const response = await fetch('/api/answersubmit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(answers),
