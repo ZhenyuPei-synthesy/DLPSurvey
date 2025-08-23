@@ -2,6 +2,6 @@
 module.exports = async function (context, req) {
   context.res = {
     status: 200,
-    body: "API is working!"
+    body: `Received: ${JSON.stringify(req.body)}`
   };
 };

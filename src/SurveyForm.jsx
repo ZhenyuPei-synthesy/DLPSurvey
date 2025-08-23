@@ -1,12 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 
-const SurveyForm = ({ surveyData }) => {
+const SurveyForm = () => {
+  const [surveyData, setSurveyData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [answers, setAnswers] = useState({});
   const [openSections, setOpenSections] = useState({});
   const [showRisk, setShowRisk] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState(null);
+
+  useEffect(() => {
+    const fetchSurveyData = async () => {
+      // データ取得用のAPIエンドポイント。環境変数から取得するか、デフォルト値を設定。
+      const apiUrl = process.env.REACT_APP_GET_SURVEY_API_URL || 'https://<your-function-app-name>.azurewebsites.net/api/<your-get-data-function-name>';
+      try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+          throw new Error('データの取得に失敗しました。');
+        }
+        const data = await response.json();
+        setSurveyData(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSurveyData();
+  }, []); // 空の依存配列で、コンポーネントのマウント時に一度だけ実行
 
   const toggleSection = (categoryName) => {
     setOpenSections(prev => ({ ...prev, [categoryName]: !prev[categoryName] }));
@@ -29,8 +53,11 @@ const SurveyForm = ({ surveyData }) => {
     setIsSubmitting(true);
     setSubmissionStatus(null);
 
+    // APIのエンドポイントを環境変数から取得。ローカル開発用にデフォルト値を設定。
+    const apiUrl = process.env.REACT_APP_API_URL || 'https://<your-function-app-name>.azurewebsites.net/api/<your-function-name>';
+
     try {
-      const response = await fetch('/api', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(answers),
@@ -47,6 +74,18 @@ const SurveyForm = ({ surveyData }) => {
       setIsSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-slate-50">
+        <p className="text-lg text-slate-600">アンケートを読み込んでいます...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="flex justify-center items-center min-h-screen bg-slate-50 text-red-600">エラー: {error}</div>;
+  }
 
   return (
     <div className="bg-slate-50 min-h-screen p-4 sm:p-8 font-sans">
