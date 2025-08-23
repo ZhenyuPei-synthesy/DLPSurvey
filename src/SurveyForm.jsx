@@ -13,8 +13,14 @@ const SurveyForm = () => {
 
   useEffect(() => {
     const fetchSurveyData = async () => {
-      // データ取得用のAPIエンドポイント。環境変数から取得するか、デフォルト値を設定。
-      const apiUrl = process.env.REACT_APP_GET_SURVEY_API_URL || 'https://<your-function-app-name>.azurewebsites.net/api/<your-get-data-function-name>';
+      // .envファイルからAPIのURLを読み込みます
+      const apiUrl = process.env.REACT_APP_GET_SURVEY_API_URL;
+      if (!apiUrl) {
+        setError('APIのURLが設定されていません。.envファイルを確認してください。');
+        setLoading(false);
+        return;
+      }
+
       try {
         const response = await fetch(apiUrl);
         if (!response.ok) {
