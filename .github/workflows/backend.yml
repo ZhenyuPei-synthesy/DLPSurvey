@@ -30,7 +30,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Install Azure Functions Worker SDK template
-        run: dotnet new --install Microsoft.Azure.Functions.Worker.Templates
+        run: dotnet new install Microsoft.Azure.Functions.Worker.ProjectTemplates
 
       - name: Restore NuGet packages
         run: |
