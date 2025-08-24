@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.Azure.Functions.Worker.Sdk/1.16.2">
+﻿<Project Sdk="Microsoft.Azure.Functions.Worker.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
