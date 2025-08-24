@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Restore NuGet packages
+        run: dotnet restore ./api/DlpFunctions.csproj
       - name: Build Azure Functions
         run: dotnet build ./api/DlpFunctions.csproj --configuration Release --output ./output
       - name: Build And Deploy
