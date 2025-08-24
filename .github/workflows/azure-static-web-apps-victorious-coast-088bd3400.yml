@@ -1,4 +1,4 @@
-name: Azure Static Web Apps CI/CD
+name: Azure Static Web Apps & Azure Functions CI/CD
 
 on:
   push:
@@ -10,7 +10,28 @@ on:
       - 2Branch
 
 jobs:
-  build_and_deploy_job:
+  frontend_deploy_job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      # フロントエンドのビルド
+      - name: Build frontend
+        run: |
+          cd ./src
+          npm install
+          npm run build
+      # SWAへのデプロイ
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "src"
+          output_location: "build"
+          api_location: "" # Functionsは別リソースなので空欄
+
+  backend_deploy_job:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
@@ -31,7 +52,7 @@ jobs:
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     name: Close Pull Request Job
     steps:
       - name: Close Pull Request
