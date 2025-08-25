@@ -214,3 +214,12 @@ const SurveyForm = () => {
 };
 
 export default SurveyForm;
+
+public class SurveyQuestion
+{
+    public string? DaiItem { get; set; }
+    public string? ChuItem { get; set; }
+    public string? CheckItem { get; set; }
+    public string? TargetEvaluation { get; set; }
+    public string? Risk { get; set; }
+}
