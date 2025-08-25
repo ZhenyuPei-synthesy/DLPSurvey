@@ -7,6 +7,8 @@ using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
+using Azure.Core; // ★ マネージドID認証用
+using Azure.Identity; // ★ マネージドID認証用
 
 namespace Company.Function
 {
@@ -34,6 +36,15 @@ namespace Company.Function
             {
                 using (var connection = new SqlConnection(connectionString))
                 {
+                    // ★★★★★ ここからが修正箇所 ★★★★★
+                    // マネージドIDを使って、データベースへのアクセストークンを取得します。
+                    var credential = new DefaultAzureCredential();
+                    var tokenRequestContext = new TokenRequestContext(new[] { "https://database.windows.net/.default" });
+                    var accessToken = await credential.GetTokenAsync(tokenRequestContext);
+
+                    // 取得したトークンを接続オブジェクトに設定します。
+                    connection.AccessToken = accessToken.Token;
+                    // ★★★★★ ここまで ★★★★★
                     await connection.OpenAsync();
                     var cmd = new SqlCommand("SELECT 大項目, 中項目, チェック項目, 対策評価, リスク FROM dbo.Servey", connection);
                     using (var reader = await cmd.ExecuteReaderAsync())
@@ -59,7 +70,7 @@ namespace Company.Function
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DB取得エラー");
+                _logger.LogError(ex, "DB取得またはトークン取得でエラーが発生しました。");
                 response.StatusCode = HttpStatusCode.InternalServerError;
                 return response;
             }
