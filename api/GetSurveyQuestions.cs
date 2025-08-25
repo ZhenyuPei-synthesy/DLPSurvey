@@ -1,31 +1,34 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
-using System.IO;
+using System.Net;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
 
 namespace Company.Function
 {
-    public static class GetSurveyQuestions
+    public class GetSurveyQuestions
     {
-        [FunctionName("GetSurveyQuestions")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
-            ILogger log)
+        private readonly ILogger _logger;
+
+        public GetSurveyQuestions(ILoggerFactory loggerFactory)
         {
-            log.LogInformation("C# HTTP trigger function processed a request.");
+            _logger = loggerFactory.CreateLogger<GetSurveyQuestions>();
+        }
+
+        [Function("GetSurveyQuestions")]
+        public async Task<HttpResponseData> Run(
+            [HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData req)
+        {
+            _logger.LogInformation("C# HTTP trigger function processed a request.");
 
             // 接続文字列取得
             var connectionString = Environment.GetEnvironmentVariable("SqlDbConnection", EnvironmentVariableTarget.Process);
-
             var questions = new List<SurveyQuestion>();
+            var response = req.CreateResponse();
 
             try
             {
@@ -48,12 +51,17 @@ namespace Company.Function
                         }
                     }
                 }
-                return new OkObjectResult(questions);
+
+                response.StatusCode = HttpStatusCode.OK;
+                response.Headers.Add("Content-Type", "application/json; charset=utf-8");
+                await response.WriteAsJsonAsync(questions);
+                return response;
             }
             catch (Exception ex)
             {
-                log.LogError(ex, "DB取得エラー");
-                return new StatusCodeResult(500);
+                _logger.LogError(ex, "DB取得エラー");
+                response.StatusCode = HttpStatusCode.InternalServerError;
+                return response;
             }
         }
 
