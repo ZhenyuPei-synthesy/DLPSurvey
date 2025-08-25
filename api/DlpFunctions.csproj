@@ -22,7 +22,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-    <PackageReference Include="Azure.Identity" Version="1.11.0" /> // For Azure AD authentication (Managed Identity)
+    <PackageReference Include="Azure.Identity" Version="1.11.0" />
   </ItemGroup>
 
   <ItemGroup>
