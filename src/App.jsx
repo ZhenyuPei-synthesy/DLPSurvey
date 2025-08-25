@@ -4,7 +4,7 @@ import SurveyForm from './SurveyForm';
 function App() {
   return (
     <div>
-      <SurveyForm surveyData={newStructuredSurveyData} />
+      <SurveyForm />
     </div>
   );
 }
