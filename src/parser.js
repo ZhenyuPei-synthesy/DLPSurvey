@@ -11,8 +11,9 @@ export const parseExcelDataToJson = (data) => {
   let itemId = 1;
 
   data.forEach(row => {
-    const categoryName = row['大項目'];
-    const subcategoryName = row['中項目'];
+    // APIのキー名(DaiItem, ChuItem)に合わせて修正
+    const categoryName = row.DaiItem;
+    const subcategoryName = row.ChuItem;
 
     let category = categoryMap.get(categoryName);
     if (!category) {
@@ -35,11 +36,17 @@ export const parseExcelDataToJson = (data) => {
       category._subcategoryMap.set(subcategoryName, subcategory);
     }
 
+    // こちらもAPIのキー名に合わせて修正
+    // また、SurveyForm.jsxが期待するプロパティ名 (question) に合わせる
     subcategory.items.push({
       id: `check-item-${itemId++}`,
-      checkItem: row['チェック項目'],
-      measure: row['対策計画'],
-      risk: row['リスク']
+      question: row.CheckItem, // "question"というキー名で質問文をセット
+      risk: row.Risk,
+      
+      // ★★★ ここが重要 ★★★
+      // APIから受け取ったTargetEvaluation（対策評価）のJSON文字列を
+      // JavaScriptの配列オブジェクトに変換し、"options"というキー名でセットする
+      options: JSON.parse(row.TargetEvaluation)
     });
   });
 

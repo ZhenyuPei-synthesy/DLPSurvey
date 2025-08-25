@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
+import { parseExcelDataToJson } from './parser.js'; 
 
 const SurveyForm = () => {
   const [surveyData, setSurveyData] = useState([]);
@@ -27,7 +28,8 @@ const SurveyForm = () => {
           throw new Error('データの取得に失敗しました。');
         }
         const data = await response.json();
-        setSurveyData(data);
+        const structuredData = parseExcelDataToJson(data); // ★ データを階層構造に変換
+        setSurveyData(structuredData);                     // ★ 変換後のデータをセット
       } catch (err) {
         setError(err.message);
       } finally {
