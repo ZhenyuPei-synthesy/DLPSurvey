@@ -25,7 +25,7 @@ const SurveyForm = () => {
       try {
         const response = await fetch(apiUrl);
         if (!response.ok) {
-          throw new Error('データの取得に失敗しました。');
+          throw new Error('データの取得に失敗しました１。');
         }
         const data = await response.json();
         const structuredData = parseExcelDataToJson(data); // ★ データを階層構造に変換
@@ -84,7 +84,7 @@ const SurveyForm = () => {
       } catch (err) {
         // ★★★ ここからが修正部分 ★★★
         console.error("APIへのフェッチ中にエラーが発生しました:", err);
-        let errorMessage = 'データの取得に失敗しました。';
+        let errorMessage = 'データの取得に失敗しました２。';
         if (err instanceof TypeError && err.message === 'Failed to fetch') {
           errorMessage += ' ネットワークエラーまたはCORSの問題の可能性があります。APIのURLが正しいか、サーバーが起動しているか確認してください。';
         } else {
