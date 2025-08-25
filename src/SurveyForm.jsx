@@ -81,11 +81,20 @@ const SurveyForm = () => {
       } else {
         setSubmissionStatus('error');
       }
-    } catch (error) {
-      setSubmissionStatus('error');
-    } finally {
-      setIsSubmitting(false);
-    }
+      } catch (err) {
+        // ★★★ ここからが修正部分 ★★★
+        console.error("APIへのフェッチ中にエラーが発生しました:", err);
+        let errorMessage = 'データの取得に失敗しました。';
+        if (err instanceof TypeError && err.message === 'Failed to fetch') {
+          errorMessage += ' ネットワークエラーまたはCORSの問題の可能性があります。APIのURLが正しいか、サーバーが起動しているか確認してください。';
+        } else {
+          errorMessage = err.message;
+        }
+        setError(errorMessage);
+        // ★★★ 修正部分ここまで ★★★
+      } finally {
+        setLoading(false);
+      }
   };
 
   if (loading) {
