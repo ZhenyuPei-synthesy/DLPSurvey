@@ -26,4 +26,5 @@ jobs:
           app_location: "/"
           output_location: "dist"
         env: 
-          REACT_APP_GET_SURVEY_API_URL: ${{ secrets.REACT_APP_GET_SURVEY_API_URL }}
+          VITE_APP_GET_SURVEY_API_URL: ${{ secrets.VITE_APP_GET_SURVEY_API_URL }}
+          VITE_APP_SUBMIT_SURVEY_API_URL: ${{ secrets.VITE_APP_SUBMIT_SURVEY_API_URL }}

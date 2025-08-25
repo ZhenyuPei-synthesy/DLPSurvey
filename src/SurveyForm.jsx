@@ -14,7 +14,7 @@ const SurveyForm = () => {
   useEffect(() => {
     const fetchSurveyData = async () => {
       // .envファイルからAPIのURLを読み込みます
-      const apiUrl = process.env.REACT_APP_GET_SURVEY_API_URL;
+      const apiUrl = import.meta.env.VITE_APP_GET_SURVEY_API_URL;
       if (!apiUrl) {
         setError('APIのURLが設定されていません。.envファイルを確認してください。');
         setLoading(false);
@@ -60,7 +60,12 @@ const SurveyForm = () => {
     setSubmissionStatus(null);
 
     // APIのエンドポイントを環境変数から取得。ローカル開発用にデフォルト値を設定。
-    const apiUrl = process.env.REACT_APP_API_URL || 'https://<your-function-app-name>.azurewebsites.net/api/<your-function-name>';
+    const apiUrl = import.meta.env.VITE_SUBMIT_SURVEY_API_URL;
+    if (!apiUrl) {
+      setError('送信先のAPIのURLが設定されていません。.envファイルを確認してください。');
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const response = await fetch(apiUrl, {
