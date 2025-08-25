@@ -46,7 +46,7 @@ namespace Company.Function
                     connection.AccessToken = accessToken.Token;
                     // ★★★★★ ここまで ★★★★★
                     await connection.OpenAsync();
-                    var cmd = new SqlCommand("SELECT 大項目, 中項目, チェック項目, 対策評価, リスク FROM dbo.Servey", connection);
+                    var cmd = new SqlCommand("SELECT 大項目, 中項目, チェック項目, 対策評価, リスク FROM dbo.Servey$", connection);
                     using (var reader = await cmd.ExecuteReaderAsync())
                     {
                         while (await reader.ReadAsync())
