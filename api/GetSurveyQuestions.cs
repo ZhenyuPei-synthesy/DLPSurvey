@@ -63,6 +63,7 @@ namespace Company.Function
             {
                 _logger.LogError(ex, "DB取得またはトークン取得でエラーが発生しました。");
                 response.StatusCode = HttpStatusCode.InternalServerError;
+                await response.WriteStringAsync(ex.ToString()); 
                 return response;
             }
         }
