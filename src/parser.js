@@ -59,13 +59,7 @@ export const parseExcelDataToJson = (data) => {
         // ★★★ 修正：TargetEvaluationはテキストデータなので、標準的な評価オプションを生成 ★★★
         // Azure SQL Databaseから取得したデータは、TargetEvaluationがプレーンテキストになっているため
         // フロントエンド用の選択肢オプションを動的に生成する
-        options: [
-          { score: 1, text: "レベル1: 基本的な対策" },
-          { score: 2, text: "レベル2: 標準的な対策" },
-          { score: 3, text: "レベル3: 強化された対策" },
-          { score: 4, text: "レベル4: 高度な対策" },
-          { score: 5, text: "レベル5: 最高レベルの対策" }
-        ]
+        options: JSON.parse(row.TargetEvaluation || '[]')
       });
     } catch (parseError) {
       console.error(`❌ Parser: Error processing row ${index}:`, parseError);
