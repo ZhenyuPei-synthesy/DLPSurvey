@@ -26,19 +26,32 @@ const SurveyForm = () => {
       }
 
       try {
-        console.log('Fetching from:', apiUrl); // デバッグ用
+        console.log('🚀 Step 1: Fetching from:', apiUrl); // デバッグ用
         const response = await fetch(apiUrl);
+        console.log('🚀 Step 2: Response received:', response.status, response.ok); // デバッグ用
+        
         if (!response.ok) {
           throw new Error(`データの取得に失敗しました。ステータス: ${response.status}`);
         }
+        
+        console.log('🚀 Step 3: Parsing JSON...'); // デバッグ用
         const data = await response.json();
-        console.log('Received data:', data); // デバッグ用
+        console.log('🚀 Step 4: JSON parsed successfully. Data length:', data?.length); // デバッグ用
+        console.log('🚀 Step 5: Sample data:', data?.slice(0, 2)); // 最初の2件だけ表示
+        
+        console.log('🚀 Step 6: Starting parseExcelDataToJson...'); // デバッグ用
         const structuredData = parseExcelDataToJson(data); // ★ データを階層構造に変換
-        console.log('Structured data:', structuredData); // デバッグ用
+        console.log('🚀 Step 7: Parsing completed. Categories:', structuredData?.length); // デバッグ用
+        console.log('🚀 Step 8: Sample structured data:', structuredData?.[0]); // 最初のカテゴリだけ表示
+        
+        console.log('🚀 Step 9: Setting survey data...'); // デバッグ用
         setSurveyData(structuredData);                     // ★ 変換後のデータをセット
+        console.log('🚀 Step 10: Survey data set successfully!'); // デバッグ用
+        
       } catch (err) {
-        console.error('Fetch error:', err); // デバッグ用
-        setError(err.message);
+        console.error('❌ ERROR occurred at step:', err); // デバッグ用
+        console.error('❌ Error stack:', err.stack); // スタックトレースも表示
+        setError(`エラーが発生しました: ${err.message}`);
       } finally {
         setLoading(false);
       }
