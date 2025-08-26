@@ -14,21 +14,43 @@ const SurveyForm = () => {
 
   useEffect(() => {
     const fetchSurveyData = async () => {
-      // .envファイルからAPIのURLを読み込みます
+      // 本番環境用のAPIのURL設定
       const apiUrl = import.meta.env.VITE_APP_GET_SURVEY_API_URL;
-      console.log('API URL:', apiUrl); // デバッグ用
-      console.log('All env variables:', import.meta.env); // デバッグ用
+      
+      console.log('🚀 Production API URL:', apiUrl);
+      console.log('🚀 Environment variables:', {
+        GET_API: import.meta.env.VITE_APP_GET_SURVEY_API_URL,
+        SUBMIT_API: import.meta.env.VITE_SUBMIT_SURVEY_API_URL,
+        MODE: import.meta.env.MODE
+      });
       
       if (!apiUrl) {
-        setError('APIのURLが設定されていません。.envファイルを確認してください。');
+        setError('APIのURLが設定されていません。環境変数を確認してください。');
         setLoading(false);
         return;
       }
 
       try {
-        console.log('🚀 Step 1: Fetching from:', apiUrl); // デバッグ用
-        const response = await fetch(apiUrl);
-        console.log('🚀 Step 2: Response received:', response.status, response.ok); // デバッグ用
+        console.log('🚀 Step 1: Fetching from:', apiUrl);
+        
+        // フェッチにタイムアウトとリトライ機能を追加
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+        
+        const response = await fetch(apiUrl, {
+          signal: controller.signal,
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'DLP-Survey-App/1.0'
+          },
+          mode: 'cors',
+          cache: 'no-cache'
+        });
+        
+        clearTimeout(timeoutId);
+        console.log('🚀 Step 2: Response received:', response.status, response.ok);
         
         if (!response.ok) {
           throw new Error(`データの取得に失敗しました。ステータス: ${response.status}`);
