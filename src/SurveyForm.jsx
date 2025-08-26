@@ -16,6 +16,9 @@ const SurveyForm = () => {
     const fetchSurveyData = async () => {
       // .envファイルからAPIのURLを読み込みます
       const apiUrl = import.meta.env.VITE_APP_GET_SURVEY_API_URL;
+      console.log('API URL:', apiUrl); // デバッグ用
+      console.log('All env variables:', import.meta.env); // デバッグ用
+      
       if (!apiUrl) {
         setError('APIのURLが設定されていません。.envファイルを確認してください。');
         setLoading(false);
@@ -23,14 +26,18 @@ const SurveyForm = () => {
       }
 
       try {
+        console.log('Fetching from:', apiUrl); // デバッグ用
         const response = await fetch(apiUrl);
         if (!response.ok) {
-          throw new Error('データの取得に失敗しました１。');
+          throw new Error(`データの取得に失敗しました。ステータス: ${response.status}`);
         }
         const data = await response.json();
+        console.log('Received data:', data); // デバッグ用
         const structuredData = parseExcelDataToJson(data); // ★ データを階層構造に変換
+        console.log('Structured data:', structuredData); // デバッグ用
         setSurveyData(structuredData);                     // ★ 変換後のデータをセット
       } catch (err) {
+        console.error('Fetch error:', err); // デバッグ用
         setError(err.message);
       } finally {
         setLoading(false);
@@ -61,7 +68,7 @@ const SurveyForm = () => {
     setIsSubmitting(true);
     setSubmissionStatus(null);
 
-    // APIのエンドポイントを環境変数から取得。ローカル開発用にデフォルト値を設定。
+    // APIのエンドポイントを環境変数から取得
     const apiUrl = import.meta.env.VITE_SUBMIT_SURVEY_API_URL;
     if (!apiUrl) {
       setError('送信先のAPIのURLが設定されていません。.envファイルを確認してください。');
@@ -70,6 +77,7 @@ const SurveyForm = () => {
     }
 
     try {
+      console.log('Submitting answers:', answers);
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,18 +90,17 @@ const SurveyForm = () => {
         setSubmissionStatus('error');
       }
       } catch (err) {
-        // ★★★ ここからが修正部分 ★★★
         console.error("APIへのフェッチ中にエラーが発生しました:", err);
-        let errorMessage = 'データの取得に失敗しました２。';
+        let errorMessage = 'データの送信に失敗しました。';
         if (err instanceof TypeError && err.message === 'Failed to fetch') {
           errorMessage += ' ネットワークエラーまたはCORSの問題の可能性があります。APIのURLが正しいか、サーバーが起動しているか確認してください。';
         } else {
           errorMessage = err.message;
         }
         setError(errorMessage);
-        // ★★★ 修正部分ここまで ★★★
+        setSubmissionStatus('error');
       } finally {
-        setLoading(false);
+        setIsSubmitting(false);
       }
   };
 
