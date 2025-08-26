@@ -17,8 +17,8 @@ jobs:
           npm install
           npm run build
         env: 
-          VITE_APP_GET_SURVEY_API_URL: https://dlp-servey-fc-bhcyape0e6c8andt.eastasia-01.azurewebsites.net/api/GetSurveyQuestions
-          VITE_SUBMIT_SURVEY_API_URL: https://dlp-servey-fc-bhcyape0e6c8andt.eastasia-01.azurewebsites.net/api/SubmitSurveyAnswers
+          VITE_APP_GET_SURVEY_API_URL: /api/GetSurveyQuestions
+          VITE_SUBMIT_SURVEY_API_URL: /api/SubmitSurveyAnswers
 
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
