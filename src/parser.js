@@ -1,32 +1,37 @@
-// src/parser.js
-
 /**
- * Azure SQL Databaseから読み込んだフラットなデータ配列を、階層構造を持つJSONに変換します。
- * SSISで投入されたアンケートデータを、フロントエンド表示用の構造に変換します。
- * @param {Array<Object>} data - 各行がオブジェクトになったデータの配列。
- * @returns {Array<Object>} 階層化されたJSONデータ。
+ * Azure SQL Database から取得したアンケートデータを階層構造JSONに変換
+ * 
+ * @description
+ * DLP（Data Loss Prevention）調査用のフラットなデータベースレコードを、
+ * React コンポーネントで表示可能な階層構造に変換します。
+ * 
+ * データ構造：
+ * - 大項目（DaiItem）→ 中項目（ChuItem）→ チェック項目（CheckItem）
+ * 
+ * @param {Array<Object>} data - データベースから取得したレコード配列
+ * @returns {Array<Object>} 階層化されたカテゴリデータ
  */
 export const parseExcelDataToJson = (data) => {
-  console.log('🔧 Parser: Starting parseExcelDataToJson with data length:', data?.length);
+  if (!data || !Array.isArray(data)) {
+    throw new Error('無効なデータ形式です');
+  }
   
   const result = [];
   const categoryMap = new Map();
   let itemId = 1;
 
   data.forEach((row, index) => {
-    if (index < 3) {
-      console.log(`🔧 Parser: Processing row ${index}:`, row);
-    }
-    
-    // APIのキー名(DaiItem, ChuItem)に合わせて修正
+    // データベースのカラム名（DaiItem, ChuItem, CheckItem, Risk）を使用
     const categoryName = row.DaiItem;
     const subcategoryName = row.ChuItem;
-
-    console.log(`🔧 Parser: Row ${index} - Category: ${categoryName}, Subcategory: ${subcategoryName}`);
+    
+    if (!categoryName || !subcategoryName) {
+      console.warn(`データ不備: 行${index} - カテゴリまたはサブカテゴリが空です`);
+      return; // スキップ
+    }
 
     let category = categoryMap.get(categoryName);
     if (!category) {
-      console.log(`🔧 Parser: Creating new category: ${categoryName}`);
       category = {
         category: categoryName,
         subcategories: [],
@@ -38,7 +43,6 @@ export const parseExcelDataToJson = (data) => {
 
     let subcategory = category._subcategoryMap.get(subcategoryName);
     if (!subcategory) {
-      console.log(`🔧 Parser: Creating new subcategory: ${subcategoryName}`);
       subcategory = {
         name: subcategoryName,
         items: []
@@ -47,18 +51,15 @@ export const parseExcelDataToJson = (data) => {
       category._subcategoryMap.set(subcategoryName, subcategory);
     }
 
-    // こちらもAPIのキー名に合わせて修正
-    // また、SurveyForm.jsxが期待するプロパティ名 (question) に合わせる
+    // チェック項目をサブカテゴリに追加
     try {
-      console.log(`🔧 Parser: Adding item ${itemId} to subcategory`);
       subcategory.items.push({
         id: `check-item-${itemId++}`,
-        question: row.CheckItem, // "question"というキー名で質問文をセット
+        question: row.CheckItem,
         risk: row.Risk,
         
-        // ★★★ 修正：TargetEvaluationはテキストデータなので、標準的な評価オプションを生成 ★★★
-        // Azure SQL Databaseから取得したデータは、TargetEvaluationがプレーンテキストになっているため
-        // フロントエンド用の選択肢オプションを動的に生成する
+        // 標準的な5段階評価オプションを生成
+        // データベースのTargetEvaluationフィールドは現在プレーンテキストのため
         options: [
           { score: 1, text: "レベル1: 基本的な対策" },
           { score: 2, text: "レベル2: 標準的な対策" },
@@ -68,17 +69,15 @@ export const parseExcelDataToJson = (data) => {
         ]
       });
     } catch (parseError) {
-      console.error(`❌ Parser: Error processing row ${index}:`, parseError);
+      console.error(`データ処理エラー - 行${index}:`, parseError.message);
       throw parseError;
     }
   });
 
+  // 内部使用のMapプロパティを削除
   result.forEach(category => {
     delete category._subcategoryMap;
   });
-
-  console.log('🔧 Parser: Parsing completed. Categories created:', result.length);
-  console.log('🔧 Parser: First category sample:', result[0]);
 
   return result;
 };

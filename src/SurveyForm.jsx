@@ -14,15 +14,8 @@ const SurveyForm = () => {
 
   useEffect(() => {
     const fetchSurveyData = async () => {
-      // 本番環境用のAPIのURL設定
+      // 環境変数からAPIのURLを取得
       const apiUrl = import.meta.env.VITE_APP_GET_SURVEY_API_URL;
-      
-      console.log('🚀 Production API URL:', apiUrl);
-      console.log('🚀 Environment variables:', {
-        GET_API: import.meta.env.VITE_APP_GET_SURVEY_API_URL,
-        SUBMIT_API: import.meta.env.VITE_SUBMIT_SURVEY_API_URL,
-        MODE: import.meta.env.MODE
-      });
       
       if (!apiUrl) {
         setError('APIのURLが設定されていません。環境変数を確認してください。');
@@ -31,11 +24,9 @@ const SurveyForm = () => {
       }
 
       try {
-        console.log('🚀 Step 1: Fetching from:', apiUrl);
-        
-        // フェッチにタイムアウトとリトライ機能を追加
+        // タイムアウト付きでデータを取得
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
         
         const response = await fetch(apiUrl, {
           signal: controller.signal,
@@ -50,29 +41,17 @@ const SurveyForm = () => {
         });
         
         clearTimeout(timeoutId);
-        console.log('🚀 Step 2: Response received:', response.status, response.ok);
         
         if (!response.ok) {
           throw new Error(`データの取得に失敗しました。ステータス: ${response.status}`);
         }
         
-        console.log('🚀 Step 3: Parsing JSON...'); // デバッグ用
         const data = await response.json();
-        console.log('🚀 Step 4: JSON parsed successfully. Data length:', data?.length); // デバッグ用
-        console.log('🚀 Step 5: Sample data:', data?.slice(0, 2)); // 最初の2件だけ表示
-        
-        console.log('🚀 Step 6: Starting parseExcelDataToJson...'); // デバッグ用
-        const structuredData = parseExcelDataToJson(data); // ★ データを階層構造に変換
-        console.log('🚀 Step 7: Parsing completed. Categories:', structuredData?.length); // デバッグ用
-        console.log('🚀 Step 8: Sample structured data:', structuredData?.[0]); // 最初のカテゴリだけ表示
-        
-        console.log('🚀 Step 9: Setting survey data...'); // デバッグ用
-        setSurveyData(structuredData);                     // ★ 変換後のデータをセット
-        console.log('🚀 Step 10: Survey data set successfully!'); // デバッグ用
+        const structuredData = parseExcelDataToJson(data);
+        setSurveyData(structuredData);
         
       } catch (err) {
-        console.error('❌ ERROR occurred at step:', err); // デバッグ用
-        console.error('❌ Error stack:', err.stack); // スタックトレースも表示
+        console.error('API取得エラー:', err.message);
         setError(`エラーが発生しました: ${err.message}`);
       } finally {
         setLoading(false);
@@ -80,7 +59,7 @@ const SurveyForm = () => {
     };
 
     fetchSurveyData();
-  }, []); // 空の依存配列で、コンポーネントのマウント時に一度だけ実行
+  }, []);
 
   const toggleSection = (categoryName) => {
     setOpenSections(prev => ({ ...prev, [categoryName]: !prev[categoryName] }));
@@ -103,40 +82,50 @@ const SurveyForm = () => {
     setIsSubmitting(true);
     setSubmissionStatus(null);
 
-    // APIのエンドポイントを環境変数から取得
+    // 回答データの検証
+    const hasAnswers = Object.keys(answers).length > 0;
+    if (!hasAnswers) {
+      setError('少なくとも一つの項目に回答してください。');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 送信用APIのエンドポイントを環境変数から取得
     const apiUrl = import.meta.env.VITE_SUBMIT_SURVEY_API_URL;
     if (!apiUrl) {
-      setError('送信先のAPIのURLが設定されていません。.envファイルを確認してください。');
+      setError('送信先のAPIのURLが設定されていません。環境変数を確認してください。');
       setIsSubmitting(false);
       return;
     }
 
     try {
-      console.log('Submitting answers:', answers);
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(answers),
       });
 
       if (response.ok) {
         setSubmissionStatus('success');
+        // 送信成功後、フォームをリセット
+        setAnswers({});
       } else {
         setSubmissionStatus('error');
       }
-      } catch (err) {
-        console.error("APIへのフェッチ中にエラーが発生しました:", err);
-        let errorMessage = 'データの送信に失敗しました。';
-        if (err instanceof TypeError && err.message === 'Failed to fetch') {
-          errorMessage += ' ネットワークエラーまたはCORSの問題の可能性があります。APIのURLが正しいか、サーバーが起動しているか確認してください。';
-        } else {
-          errorMessage = err.message;
-        }
-        setError(errorMessage);
-        setSubmissionStatus('error');
-      } finally {
-        setIsSubmitting(false);
+    } catch (err) {
+      console.error('送信エラー:', err.message);
+      let errorMessage = 'データの送信に失敗しました。';
+      if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        errorMessage += ' ネットワークエラーまたはCORSの問題の可能性があります。';
       }
+      setError(errorMessage);
+      setSubmissionStatus('error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (loading) {
