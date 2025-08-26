@@ -23,14 +23,25 @@ namespace Company.Function
 
         [Function("GetSurveyQuestions")]
         public async Task<HttpResponseData> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequestData req)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", "options")] HttpRequestData req)
         {
             _logger.LogInformation("C# HTTP trigger function processed a request.");
+
+            var response = req.CreateResponse();
+
+            // CORS プリフライトリクエスト（OPTIONS）の処理
+            if (req.Method == "OPTIONS")
+            {
+                response.StatusCode = HttpStatusCode.OK;
+                response.Headers.Add("Access-Control-Allow-Origin", "https://orange-pebble-0db3cdd00.1.azurestaticapps.net");
+                response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+                response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                return response;
+            }
 
             // 接続文字列取得
             var connectionString = Environment.GetEnvironmentVariable("SqlDbConnection", EnvironmentVariableTarget.Process);
             var questions = new List<SurveyQuestion>();
-            var response = req.CreateResponse();
 
             try
             {
@@ -55,6 +66,9 @@ namespace Company.Function
                 }
 
                 response.StatusCode = HttpStatusCode.OK;
+                response.Headers.Add("Access-Control-Allow-Origin", "https://orange-pebble-0db3cdd00.1.azurestaticapps.net");
+                response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+                response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
                 await response.WriteAsJsonAsync(questions);
                 return response;
             }

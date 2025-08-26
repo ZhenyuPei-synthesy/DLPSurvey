@@ -9,5 +9,14 @@
             },
             "enableLiveMetricsFilters": true
         }
+    },
+    "extensions": {
+        "http": {
+            "customHeaders": {
+                "Access-Control-Allow-Origin": "https://orange-pebble-0db3cdd00.1.azurestaticapps.net",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
+        }
     }
 }
