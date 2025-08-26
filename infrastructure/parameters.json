@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "projectPrefix": {
+      "value": "dlp-survey"
+    },
+    "environment": {
+      "value": "prod"
+    },
+    "location": {
+      "value": "East Asia"
+    },
+    "sqlAdminUsername": {
+      "value": "sqladmin"
+    },
+    "sqlAdminPassword": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/{subscription-id}/resourceGroups/{key-vault-rg}/providers/Microsoft.KeyVault/vaults/{key-vault-name}"
+        },
+        "secretName": "sql-admin-password"
+      }
+    },
+    "githubToken": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/{subscription-id}/resourceGroups/{key-vault-rg}/providers/Microsoft.KeyVault/vaults/{key-vault-name}"
+        },
+        "secretName": "github-token"
+      }
+    },
+    "repositoryUrl": {
+      "value": "https://github.com/ZhenyuPei-synthesy/DLPSurvey"
+    },
+    "appBranch": {
+      "value": "2Branch"
+    }
+  }
+}
