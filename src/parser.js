@@ -81,7 +81,26 @@ export const parseExcelDataToJson = (data) => {
       // 同一サブカテゴリ内で同じ質問テキストが既に存在する場合は
       // その既存アイテムに対策評価(option)を追加する（重複除去）
       const questionText = row.CheckItem || '';
-      const parsedOptions = parseTargetEvaluation(row.TargetEvaluation);
+      // Support two possible shapes from the API:
+      // - legacy: TargetEvaluation is a string containing options
+      // - newer: Options is already an array of { Score, Text } or {score,text}
+      let parsedOptions = [];
+      if (Array.isArray(row.Options) && row.Options.length > 0) {
+        // Map API option objects to parser's {score,text} shape
+        parsedOptions = row.Options.map(o => {
+          // support different casing (Score or score, Text or text)
+          const score = (o && (o.Score !== undefined ? o.Score : o.score)) ?? null;
+          const text = (o && (o.Text !== undefined ? o.Text : o.text)) ?? '';
+          return { score: score, text: String(text).trim() };
+        }).filter(Boolean);
+      } else if (row.TargetEvaluation) {
+        parsedOptions = parseTargetEvaluation(row.TargetEvaluation);
+      } else if (row.OptionRaw) {
+        // compatibility: some payloads may use OptionRaw
+        parsedOptions = parseTargetEvaluation(row.OptionRaw);
+      } else {
+        parsedOptions = [];
+      }
       const existingItem = subcategory.items.find(it => it.question === questionText);
       if (existingItem) {
         existingItem.options = existingItem.options || [];
