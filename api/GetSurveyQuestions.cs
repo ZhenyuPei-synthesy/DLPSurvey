@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
@@ -7,8 +8,8 @@ using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
-using Azure.Core; // ★ マネージドID認証用
-using Azure.Identity; // ★ マネージドID認証用
+using Azure.Core;
+using Azure.Identity;
 
 namespace Company.Function
 {
@@ -33,9 +34,7 @@ namespace Company.Function
             if (req.Method == "OPTIONS")
             {
                 response.StatusCode = HttpStatusCode.OK;
-                response.Headers.Add("Access-Control-Allow-Origin", "https://orange-pebble-0db3cdd00.1.azurestaticapps.net");
-                response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-                response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                AddCorsHeaders(response, req);
                 return response;
             }
 
@@ -66,9 +65,7 @@ namespace Company.Function
                 }
 
                 response.StatusCode = HttpStatusCode.OK;
-                response.Headers.Add("Access-Control-Allow-Origin", "https://orange-pebble-0db3cdd00.1.azurestaticapps.net");
-                response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-                response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                AddCorsHeaders(response, req);
                 await response.WriteAsJsonAsync(questions);
                 return response;
             }
@@ -76,8 +73,37 @@ namespace Company.Function
             {
                 _logger.LogError(ex, "DB取得またはトークン取得でエラーが発生しました。");
                 response.StatusCode = HttpStatusCode.InternalServerError;
+                AddCorsHeaders(response, req);
                 return response;
             }
+        }
+
+        private void AddCorsHeaders(HttpResponseData response, HttpRequestData request)
+        {
+            // 許可するOriginのリスト
+            var allowedOrigins = new[]
+            {
+                "http://localhost:3000",    // React開発サーバー
+                "http://localhost:5173",    // Vite開発サーバー  
+                "http://localhost:4280",    // SWA CLI開発サーバー
+                "https://orange-pebble-0db3cdd00.1.azurestaticapps.net" // 本番環境
+            };
+
+            var origin = request.Headers.GetValues("Origin")?.FirstOrDefault();
+            
+            if (!string.IsNullOrEmpty(origin) && allowedOrigins.Contains(origin))
+            {
+                response.Headers.Add("Access-Control-Allow-Origin", origin);
+            }
+            else
+            {
+                // デフォルトで本番環境を許可（後方互換性のため）
+                response.Headers.Add("Access-Control-Allow-Origin", "https://orange-pebble-0db3cdd00.1.azurestaticapps.net");
+            }
+            
+            response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            response.Headers.Add("Access-Control-Allow-Credentials", "false");
         }
 
         public class SurveyQuestion
