@@ -14,6 +14,27 @@ namespace Company.Function
     {
         private readonly ILogger _logger;
 
+        private DateTime GetJapanNow()
+        {
+            try
+            {
+                var tz = TimeZoneInfo.FindSystemTimeZoneById("Tokyo Standard Time");
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+            }
+            catch
+            {
+                try
+                {
+                    var tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+                    return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+                }
+                catch
+                {
+                    return DateTime.UtcNow.AddHours(9);
+                }
+            }
+        }
+
         public SaveAnswersTemporary(ILoggerFactory loggerFactory)
         {
             _logger = loggerFactory.CreateLogger<SaveAnswersTemporary>();
@@ -86,23 +107,25 @@ namespace Company.Function
                         await insertCmd.ExecuteNonQueryAsync();
                     }
 
-                    // 回答者テーブルのステータスを「一時保存」に更新
+                    // 回答者テーブルのステータスを「一時保存」に更新し、回答時刻を上書きする
                     try
                     {
                         var updateCmd = new SqlCommand(@"
                             UPDATE [Respondent$]
-                            SET [回答ステータス] = @Status
+                            SET [回答ステータス] = @Status,
+                                [回答時刻] = @AnswerTime
                             WHERE [回答者番号] = @RespondentId", connection);
 
                         updateCmd.Parameters.AddWithValue("@Status", "一時保存");
+                        updateCmd.Parameters.AddWithValue("@AnswerTime", GetJapanNow());
                         updateCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId ?? "");
 
                         await updateCmd.ExecuteNonQueryAsync();
                     }
                     catch (Exception ex)
                     {
-                        // ステータス更新が失敗しても一時保存自体は成功として扱うがログは残す
-                        _logger.LogWarning(ex, "Failed to update respondent status to 一時保存 for {RespondentId}", requestData?.RespondentId);
+                        // ステータス/時刻更新が失敗しても一時保存自体は成功として扱うがログは残す
+                        _logger.LogWarning(ex, "Failed to update respondent status/timestamp to 一時保存 for {RespondentId}", requestData?.RespondentId);
                     }
                 }
 

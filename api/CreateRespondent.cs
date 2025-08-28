@@ -13,6 +13,30 @@ namespace Company.Function
     {
         private readonly ILogger _logger;
 
+        private DateTime GetJapanNow()
+        {
+            try
+            {
+                // Windows timezone id
+                var tz = TimeZoneInfo.FindSystemTimeZoneById("Tokyo Standard Time");
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+            }
+            catch
+            {
+                try
+                {
+                    // Linux/macOS timezone id
+                    var tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+                    return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+                }
+                catch
+                {
+                    // fallback: add 9 hours to UTC
+                    return DateTime.UtcNow.AddHours(9);
+                }
+            }
+        }
+
         public CreateRespondent(ILoggerFactory loggerFactory)
         {
             _logger = loggerFactory.CreateLogger<CreateRespondent>();
@@ -96,9 +120,10 @@ SELECT @next;
                     cmd.Parameters.AddWithValue("@name", string.IsNullOrEmpty(name) ? (object)DBNull.Value : name);
                     cmd.Parameters.AddWithValue("@email", string.IsNullOrEmpty(email) ? (object)DBNull.Value : email);
                     cmd.Parameters.AddWithValue("@phone", string.IsNullOrEmpty(phone) ? (object)DBNull.Value : phone);
-                    // insert current UTC time for creation, answer time and mark status as '回答中'
-                    cmd.Parameters.AddWithValue("@created", DateTime.UtcNow);
-                    cmd.Parameters.AddWithValue("@answerTime", DateTime.UtcNow);
+                    // insert current Japan time for creation, answer time and mark status as '回答中'
+                    var japanNow = GetJapanNow();
+                    cmd.Parameters.AddWithValue("@created", japanNow);
+                    cmd.Parameters.AddWithValue("@answerTime", japanNow);
                     cmd.Parameters.AddWithValue("@answerNumber", string.IsNullOrEmpty(answerNumber) ? (object)DBNull.Value : answerNumber);
                     cmd.Parameters.AddWithValue("@status", "回答中");
 
