@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 import { parseExcelDataToJson } from './parser.js'; 
 
-const SurveyForm = () => {
+const SurveyForm = ({ respondentId, onComplete }) => {
   const [surveyData, setSurveyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -121,6 +121,10 @@ const SurveyForm = () => {
 
       if (response.ok) {
         setSubmissionStatus('success');
+        // アンケート回答完了後、レポート画面に遷移
+        setTimeout(() => {
+          onComplete(answers, surveyData);
+        }, 1000);
       } else {
         setSubmissionStatus('error');
       }
