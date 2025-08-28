@@ -104,6 +104,7 @@ namespace Company.Function
                                         var sql = $@"
 SELECT 
     t.[{joinCol}] AS QuestionNumber,
+    t.[中項目番号] AS ChuItemNumber,
     t.[大項目] AS DaiItem,
     t.[中項目] AS ChuItem,
     t.[チェック項目] AS CheckItem,
@@ -125,7 +126,8 @@ ORDER BY t.[{joinCol}], o.[対策評価]";
                                 {
                                     q = new SurveyQuestion
                                     {
-                                        QuestionNumber = qnum,
+                                                QuestionNumber = qnum,
+                                                ChuItemNumber = reader["ChuItemNumber"]?.ToString() ?? string.Empty,
                                         DaiItem = reader["DaiItem"]?.ToString() ?? string.Empty,
                                         ChuItem = reader["ChuItem"]?.ToString() ?? string.Empty,
                                         CheckItem = reader["CheckItem"]?.ToString() ?? string.Empty,
@@ -219,6 +221,7 @@ ORDER BY t.[{joinCol}], o.[対策評価]";
         public class SurveyQuestion
         {
             public string? QuestionNumber { get; set; }
+            public string? ChuItemNumber { get; set; }
             public string? DaiItem { get; set; }
             public string? ChuItem { get; set; }
             public string? CheckItem { get; set; }

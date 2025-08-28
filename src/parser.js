@@ -104,6 +104,14 @@ export const parseExcelDataToJson = (data) => {
       const existingItem = subcategory.items.find(it => it.question === questionText);
       if (existingItem) {
         existingItem.options = existingItem.options || [];
+        // 質問番号が設定されていない場合は設定
+        if (!existingItem.questionNumber && row.QuestionNumber) {
+          existingItem.questionNumber = row.QuestionNumber;
+        }
+        // 中項目番号が設定されていない場合は設定
+        if (!existingItem.chuItemNumber && row.ChuItemNumber) {
+          existingItem.chuItemNumber = row.ChuItemNumber;
+        }
         // parsedOptions を既存 options にマージ（text または score で重複排除）
         parsedOptions.forEach(opt => {
           const isDup = existingItem.options.some(o => (o.text && opt.text && o.text === opt.text) || (o.score !== undefined && opt.score !== undefined && o.score === opt.score));
@@ -114,6 +122,8 @@ export const parseExcelDataToJson = (data) => {
       } else {
         subcategory.items.push({
           id: `check-item-${itemId++}`,
+          questionNumber: row.QuestionNumber || '', // 質問番号を追加
+          chuItemNumber: row.ChuItemNumber || '', // 中項目番号を追加
           question: questionText, // "question"というキー名で質問文をセット
           risk: row.Risk,
           options: parsedOptions
@@ -124,6 +134,7 @@ export const parseExcelDataToJson = (data) => {
       // 全体を止めずに空のoptionsで継続
       subcategory.items.push({
         id: `check-item-${itemId++}`,
+        questionNumber: row.QuestionNumber || '', // 質問番号を追加
         question: row.CheckItem || '（質問文なし）',
         risk: row.Risk || '',
         options: []

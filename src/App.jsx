@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import SurveyForm from './SurveyForm';
 import Welcome from './Welcome';
 import Report from './Report';
@@ -10,9 +10,27 @@ function App() {
   const [surveyAnswers, setSurveyAnswers] = useState({});
   const [surveyData, setSurveyData] = useState([]);
 
+  // 初期化時にセッションから回答者IDを復元
+  useEffect(() => {
+    const storedRespondentId = sessionStorage.getItem('respondentId');
+    const surveyStarted = sessionStorage.getItem('surveyStarted');
+    
+    // 回答者IDとsurveyStartedフラグの両方があることを確認
+    if (storedRespondentId && surveyStarted === 'true') {
+      setRespondentId(storedRespondentId);
+      setStarted(true);
+    } else {
+      // どちらかが欠けている場合は初期状態に戻す
+      sessionStorage.removeItem('respondentId');
+      sessionStorage.removeItem('surveyStarted');
+    }
+  }, []);
+
   const handleNext = (id) => {
     if (id) setRespondentId(id);
     setStarted(true);
+    // アンケート開始フラグをセット
+    sessionStorage.setItem('surveyStarted', 'true');
   };
 
   const handleSurveyComplete = (answers, data) => {
@@ -27,6 +45,9 @@ function App() {
     setSurveyAnswers({});
     setSurveyData([]);
     setRespondentId(null);
+    // セッションストレージをクリア
+    sessionStorage.removeItem('respondentId');
+    sessionStorage.removeItem('surveyStarted');
   };
 
   return (

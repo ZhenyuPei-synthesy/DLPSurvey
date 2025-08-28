@@ -11,6 +11,8 @@ const SurveyForm = ({ respondentId, onComplete }) => {
   const [showRisk, setShowRisk] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState(null);
+  const [isSavingTemporary, setIsSavingTemporary] = useState(false);
+  const [tempSaveStatus, setTempSaveStatus] = useState(null);
 
   useEffect(() => {
     const fetchSurveyData = async () => {
@@ -82,6 +84,62 @@ const SurveyForm = ({ respondentId, onComplete }) => {
     fetchSurveyData();
   }, []); // 空の依存配列で、コンポーネントのマウント時に一度だけ実行
 
+  // 一時保存された回答を読み込む
+  useEffect(() => {
+    const loadSavedAnswers = async () => {
+      try {
+        const storedRespondentId = sessionStorage.getItem('respondentId');
+        const currentRespondentId = storedRespondentId || respondentId;
+        
+        if (!currentRespondentId || surveyData.length === 0) return;
+
+        const apiUrl = import.meta.env.MODE === 'development' 
+          ? '/api/LoadAnswersTemporary'
+          : (import.meta.env.VITE_LOAD_TEMPORARY_API_URL || '/api/LoadAnswersTemporary');
+
+        const response = await fetch(`${apiUrl}?respondentId=${currentRespondentId}`);
+        
+        if (response.ok) {
+          const savedAnswers = await response.json();
+          if (savedAnswers.success && savedAnswers.answers && savedAnswers.answers.length > 0) {
+            const loadedAnswers = {};
+            
+            // questionNumberでマッチングして回答を復元
+            surveyData.forEach(category => {
+              category.subcategories.forEach(subcategory => {
+                subcategory.items.forEach(item => {
+                  const savedAnswer = savedAnswers.answers.find(saved => {
+                    const savedQNum = saved.questionNumber || saved.QuestionNumber || '';
+                    const savedChu = saved.chuItemNumber || saved.ChuItemNumber || '';
+                    // If both have chuItemNumber, match both; otherwise fallback to questionNumber only
+                    if (savedChu && item.chuItemNumber) {
+                      return savedQNum === item.questionNumber && savedChu === item.chuItemNumber;
+                    }
+                    return savedQNum === item.questionNumber;
+                  });
+                  
+                  if (savedAnswer) {
+                    loadedAnswers[item.id] = {
+                      score: savedAnswer.countermeasureEvaluation ? parseInt(savedAnswer.countermeasureEvaluation) : undefined
+                    };
+                  }
+                });
+              });
+            });
+            
+            setAnswers(loadedAnswers);
+          }
+        }
+      } catch (err) {
+        console.error("一時保存された回答の読み込み中にエラー:", err);
+      }
+    };
+
+    if (surveyData.length > 0) {
+      loadSavedAnswers();
+    }
+  }, [surveyData, respondentId]);
+
   const toggleSection = (categoryName) => {
     setOpenSections(prev => ({ ...prev, [categoryName]: !prev[categoryName] }));
   };
@@ -141,6 +199,72 @@ const SurveyForm = ({ respondentId, onComplete }) => {
       } finally {
         setIsSubmitting(false);
       }
+  };
+
+  const handleTemporarySave = async () => {
+    setIsSavingTemporary(true);
+    setTempSaveStatus(null);
+
+    try {
+      // セッションストレージから回答者番号を取得
+      const storedRespondentId = sessionStorage.getItem('respondentId');
+      const currentRespondentId = storedRespondentId || respondentId;
+
+      if (!currentRespondentId) {
+        setTempSaveStatus('error');
+        alert('回答者番号が見つかりません。最初からやり直してください。');
+        return;
+      }
+
+      // 回答データを整理してAPIに送信する形式に変換
+      const answerItems = [];
+
+      // surveyDataから質問情報を取得し、answersと組み合わせる
+      surveyData.forEach(category => {
+        category.subcategories.forEach(subcategory => {
+          subcategory.items.forEach(item => {
+            const answer = answers[item.id];
+            if (answer && answer.score !== undefined) {
+              answerItems.push({
+                itemId: item.id,
+                questionNumber: item.questionNumber,
+                chuItemNumber: item.chuItemNumber,
+                category: category.category,
+                subcategory: subcategory.name,
+                question: item.question,
+                countermeasureEvaluation: answer.score !== undefined ? answer.score.toString() : null
+              });
+            }
+          });
+        });
+      });
+
+      // 一時保存API呼び出し
+      const apiUrl = import.meta.env.MODE === 'development' 
+        ? '/api/SaveAnswersTemporary'
+        : (import.meta.env.VITE_SAVE_TEMPORARY_API_URL || '/api/SaveAnswersTemporary');
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          respondentId: currentRespondentId,
+          answerItems: answerItems
+        }),
+      });
+
+      if (response.ok) {
+        setTempSaveStatus('success');
+        setTimeout(() => setTempSaveStatus(null), 3000); // 3秒後にメッセージを消す
+      } else {
+        setTempSaveStatus('error');
+      }
+    } catch (err) {
+      console.error("一時保存中にエラーが発生しました:", err);
+      setTempSaveStatus('error');
+    } finally {
+      setIsSavingTemporary(false);
+    }
   };
 
   if (loading) {
@@ -254,13 +378,31 @@ const SurveyForm = ({ respondentId, onComplete }) => {
           </div>
 
           <div className="mt-8 p-6 bg-white border border-gray-200 rounded-lg shadow-sm text-center">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? '送信中...' : '回答を送信'}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                type="button"
+                onClick={handleTemporarySave}
+                disabled={isSavingTemporary}
+                className="px-6 py-3 border border-gray-300 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSavingTemporary ? '保存中...' : '一時保存'}
+              </button>
+              
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSubmitting ? '送信中...' : '回答を送信'}
+              </button>
+            </div>
+            
+            {tempSaveStatus === 'success' && (
+              <p className="mt-4 text-green-600">一時保存が完了しました。</p>
+            )}
+            {tempSaveStatus === 'error' && (
+              <p className="mt-4 text-red-600">一時保存に失敗しました。時間をおいて再度お試しください。</p>
+            )}
             
             {submissionStatus === 'success' && (
               <p className="mt-4 text-green-600">回答が正常に送信されました。ご協力ありがとうございます！</p>

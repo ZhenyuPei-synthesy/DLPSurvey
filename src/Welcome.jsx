@@ -57,6 +57,12 @@ const Welcome = ({ onNext }) => {
 
       const json = await res.json();
       const respondentId = json.respondentId || json.id || null;
+      
+      // セッションストレージに回答者番号を保存
+      if (respondentId) {
+        sessionStorage.setItem('respondentId', respondentId.toString());
+      }
+      
       onNext(respondentId);
     } catch (err) {
       console.error(err);
