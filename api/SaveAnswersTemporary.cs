@@ -81,51 +81,65 @@ namespace Company.Function
                 {
                     await connection.OpenAsync();
                     
-                    // 既存の一時保存データを削除
-                    var deleteCmd = new SqlCommand("DELETE FROM [Answers$] WHERE [回答者番号] = @RespondentId", connection);
-                    deleteCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId ?? "");
-                    await deleteCmd.ExecuteNonQueryAsync();
-                    
-                    // 新しいデータを挿入
-                    foreach (var answerItem in requestData.AnswerItems)
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        var insertCmd = new SqlCommand(@"
-                            INSERT INTO [Answers$] 
-                                ([回答者番号], [チェック項目番号], [中項目番号], [大項目], [中項目], [チェック項目], [対策評価_回答]) 
-                                VALUES 
-                                (@RespondentId, @ItemId, @ChuItemNumber, @Category, @Subcategory, @Question, @CountermeasureEvaluation)", 
-                            connection);
-                        
-                        insertCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId ?? "");
-                        insertCmd.Parameters.AddWithValue("@ItemId", answerItem.QuestionNumber ?? "");
-                        insertCmd.Parameters.AddWithValue("@Category", answerItem.Category ?? (object)DBNull.Value);
-                        insertCmd.Parameters.AddWithValue("@Subcategory", answerItem.Subcategory ?? (object)DBNull.Value);
-                        insertCmd.Parameters.AddWithValue("@ChuItemNumber", answerItem.ChuItemNumber ?? (object)DBNull.Value);
-                        insertCmd.Parameters.AddWithValue("@Question", answerItem.Question ?? (object)DBNull.Value);
-                        insertCmd.Parameters.AddWithValue("@CountermeasureEvaluation", answerItem.CountermeasureEvaluation ?? (object)DBNull.Value);
-                        
-                        await insertCmd.ExecuteNonQueryAsync();
-                    }
+                        try
+                        {
+                            // 既存の一時保存データを削除
+                            var deleteCmd = new SqlCommand("DELETE FROM [Answers$] WHERE [回答者番号] = @RespondentId", connection, transaction);
+                            deleteCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId ?? "");
+                            await deleteCmd.ExecuteNonQueryAsync();
+                            
+                            // 新しいデータを挿入（全項目、未回答も含む）
+                            foreach (var answerItem in requestData.AnswerItems)
+                            {
+                                var insertCmd = new SqlCommand(@"
+                                    INSERT INTO [Answers$] 
+                                        ([回答者番号], [チェック項目番号], [中項目番号], [大項目], [中項目], [チェック項目], [対策評価_回答], [コメント]) 
+                                        VALUES 
+                                        (@RespondentId, @ItemId, @ChuItemNumber, @Category, @Subcategory, @Question, @CountermeasureEvaluation, @Comment)", 
+                                    connection, transaction);
+                                
+                                insertCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId ?? "");
+                                insertCmd.Parameters.AddWithValue("@ItemId", answerItem.QuestionNumber ?? "");
+                                insertCmd.Parameters.AddWithValue("@Category", answerItem.Category ?? (object)DBNull.Value);
+                                insertCmd.Parameters.AddWithValue("@Subcategory", answerItem.Subcategory ?? (object)DBNull.Value);
+                                insertCmd.Parameters.AddWithValue("@ChuItemNumber", answerItem.ChuItemNumber ?? (object)DBNull.Value);
+                                insertCmd.Parameters.AddWithValue("@Question", answerItem.Question ?? (object)DBNull.Value);
+                                insertCmd.Parameters.AddWithValue("@CountermeasureEvaluation", answerItem.CountermeasureEvaluation ?? (object)DBNull.Value);
+                                insertCmd.Parameters.AddWithValue("@Comment", answerItem.Comment ?? (object)DBNull.Value);
+                                
+                                await insertCmd.ExecuteNonQueryAsync();
+                            }
 
-                    // 回答者テーブルのステータスを「一時保存」に更新し、回答時刻を上書きする
-                    try
-                    {
-                        var updateCmd = new SqlCommand(@"
-                            UPDATE [Respondent$]
-                            SET [回答ステータス] = @Status,
-                                [回答時刻] = @AnswerTime
-                            WHERE [回答者番号] = @RespondentId", connection);
+                            // 回答者テーブルのステータスを「一時保存」に更新し、回答時刻を上書きする
+                            try
+                            {
+                                var updateCmd = new SqlCommand(@"
+                                    UPDATE [Respondent$]
+                                    SET [回答ステータス] = @Status,
+                                        [回答時刻] = @AnswerTime
+                                    WHERE [回答者番号] = @RespondentId", connection, transaction);
 
-                        updateCmd.Parameters.AddWithValue("@Status", "一時保存");
-                        updateCmd.Parameters.AddWithValue("@AnswerTime", GetJapanNow());
-                        updateCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId ?? "");
+                                updateCmd.Parameters.AddWithValue("@Status", "一時保存");
+                                updateCmd.Parameters.AddWithValue("@AnswerTime", GetJapanNow());
+                                updateCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId ?? "");
 
-                        await updateCmd.ExecuteNonQueryAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        // ステータス/時刻更新が失敗しても一時保存自体は成功として扱うがログは残す
-                        _logger.LogWarning(ex, "Failed to update respondent status/timestamp to 一時保存 for {RespondentId}", requestData?.RespondentId);
+                                await updateCmd.ExecuteNonQueryAsync();
+                            }
+                            catch (Exception ex)
+                            {
+                                // ステータス/時刻更新が失敗しても一時保存自体は成功として扱うがログは残す
+                                _logger.LogWarning(ex, "Failed to update respondent status/timestamp to 一時保存 for {RespondentId}", requestData?.RespondentId);
+                            }
+                            
+                            transaction.Commit();
+                        }
+                        catch
+                        {
+                            transaction.Rollback();
+                            throw;
+                        }
                     }
                 }
 
@@ -165,6 +179,7 @@ namespace Company.Function
             public string? Subcategory { get; set; }
             public string? Question { get; set; }
             public string? CountermeasureEvaluation { get; set; }
+            public string? Comment { get; set; } // コメント追加
         }
     }
 }

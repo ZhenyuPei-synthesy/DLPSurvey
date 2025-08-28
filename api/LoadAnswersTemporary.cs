@@ -62,7 +62,7 @@ namespace Company.Function
                     await connection.OpenAsync();
                     
                     var selectCmd = new SqlCommand(@"
-                        SELECT [チェック項目番号], [中項目番号], [大項目], [中項目], [チェック項目], [対策評価_回答]
+                        SELECT [チェック項目番号], [中項目番号], [大項目], [中項目], [チェック項目], [対策評価_回答], [コメント]
                         FROM [Answers$] 
                         WHERE [回答者番号] = @RespondentId", connection);
                     
@@ -79,7 +79,8 @@ namespace Company.Function
                                 Category = reader["大項目"]?.ToString(),
                                 Subcategory = reader["中項目"]?.ToString(),
                                 Question = reader["チェック項目"]?.ToString(),
-                                CountermeasureEvaluation = reader["対策評価_回答"]?.ToString()
+                                CountermeasureEvaluation = reader["対策評価_回答"]?.ToString(),
+                                Comment = reader["コメント"]?.ToString()
                             });
                         }
                     }
@@ -114,6 +115,7 @@ namespace Company.Function
             public string? Subcategory { get; set; }
             public string? Question { get; set; }
             public string? CountermeasureEvaluation { get; set; }
+            public string? Comment { get; set; } // コメント追加
         }
     }
 }

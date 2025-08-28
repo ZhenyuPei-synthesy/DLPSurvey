@@ -15,6 +15,8 @@ const Welcome = ({ onNext }) => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [showResumeForm, setShowResumeForm] = useState(false);
   const [resumeInputs, setResumeInputs] = useState({ email: '', answerNumber: '' });
+  const [resumeError, setResumeError] = useState(null);
+  const [isResuming, setIsResuming] = useState(false);
 
   // In development prefer relative path so Vite proxy forwards to local Functions.
   // In production use the explicit environment variable if provided.
@@ -103,6 +105,58 @@ const Welcome = ({ onNext }) => {
     }
   };
 
+  const handleResumeSubmit = async (e) => {
+    e.preventDefault();
+    setIsResuming(true);
+    setResumeError(null);
+    
+    if (!resumeInputs.email || !resumeInputs.answerNumber) {
+      setResumeError('メールアドレスと回答番号を入力してください。');
+      setIsResuming(false);
+      return;
+    }
+
+    const resumeApiUrl = isDev
+      ? '/api/ResumeSurvey'
+      : (import.meta.env.VITE_RESUME_SURVEY_API_URL || '/api/ResumeSurvey');
+
+    try {
+      const res = await fetch(resumeApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: resumeInputs.email,
+          answerNumber: resumeInputs.answerNumber
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'アンケートの再開に失敗しました');
+      }
+
+      const json = await res.json();
+      const respondentId = json.respondentId;
+      
+      if (respondentId) {
+        // セッションストレージにデータを設定
+        sessionStorage.setItem('respondentId', respondentId.toString());
+        sessionStorage.setItem('answerNumber', resumeInputs.answerNumber);
+        sessionStorage.setItem('respondentEmail', resumeInputs.email);
+        
+        // アンケートを再開
+        onNext(respondentId);
+      } else {
+        throw new Error('回答者IDが取得できませんでした');
+      }
+    } catch (err) {
+      console.error(err);
+      setResumeError(err.message || 'アンケートの再開中にエラーが発生しました');
+    } finally {
+      setIsResuming(false);
+    }
+  };
+
   const handleResumeToggle = () => setShowResumeForm(prev => !prev);
 
   const handleResumeInputChange = (e) => {
@@ -127,7 +181,7 @@ const Welcome = ({ onNext }) => {
           <p className="text-slate-600">AAA</p>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm">
+  <div className="bg-white p-6 rounded-lg shadow-sm">
           <h3 className="text-lg font-medium mb-4">受検者情報</h3>
           <form onSubmit={handleSubmit}>
             <div className="space-y-3">
@@ -179,18 +233,42 @@ const Welcome = ({ onNext }) => {
             <button onClick={handleResumeToggle} className="text-sm text-blue-600 underline">アセスメント再開</button>
             {showResumeForm && (
               <div className="mt-4 space-y-3">
-                <p className="text-sm text-slate-600">保存したメールアドレスと回答番号を入力してアセスメントを再開できます（実際の復元は未実装）。</p>
-                <div>
-                  <label className="block text-sm text-slate-600">メールアドレス</label>
-                  <input name="email" value={resumeInputs.email} onChange={handleResumeInputChange} className="mt-1 w-full p-2 border rounded" />
-                </div>
-                <div>
-                  <label className="block text-sm text-slate-600">回答番号</label>
-                  <input name="answerNumber" value={resumeInputs.answerNumber} onChange={handleResumeInputChange} className="mt-1 w-full p-2 border rounded" />
-                </div>
-                <div className="text-right">
-                  <button className="px-4 py-2 bg-green-600 text-white rounded">再開（未実装）</button>
-                </div>
+                <p className="text-sm text-slate-600">保存したメールアドレスと回答番号を入力してアセスメントを再開できます。</p>
+                <form onSubmit={handleResumeSubmit}>
+                  <div>
+                    <label className="block text-sm text-slate-600">メールアドレス</label>
+                    <input 
+                      type="email" 
+                      name="email" 
+                      value={resumeInputs.email} 
+                      onChange={handleResumeInputChange} 
+                      className="mt-1 w-full p-2 border rounded" 
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-600">回答番号</label>
+                    <input 
+                      name="answerNumber" 
+                      value={resumeInputs.answerNumber} 
+                      onChange={handleResumeInputChange} 
+                      className="mt-1 w-full p-2 border rounded" 
+                      required 
+                    />
+                  </div>
+                  {resumeError && (
+                    <p className="mt-2 text-sm text-red-600">{resumeError}</p>
+                  )}
+                  <div className="text-right mt-3">
+                    <button 
+                      type="submit" 
+                      disabled={isResuming}
+                      className="px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400"
+                    >
+                      {isResuming ? '再開中...' : 'アンケート再開'}
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
           </div>

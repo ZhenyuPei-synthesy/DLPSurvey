@@ -151,9 +151,8 @@ function App() {
   <div className="flex flex-col min-h-screen">
       <div className="relative">
         <div className="h-48 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 flex items-center">
-          <div className="max-w-6xl mx-auto px-6 w-full flex items-center justify-between">
+          <div className="max-w-6xl mx-auto px-6">
             <h1 className="text-white text-3xl md:text-4xl font-extrabold">AI時代の内部情報漏洩対策アセスメント</h1>
-            <div className="text-white text-sm opacity-80 hidden sm:block">Synthesy株式会社</div>
           </div>
         </div>
       </div>

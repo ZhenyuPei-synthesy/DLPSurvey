@@ -119,8 +119,31 @@ import { parseExcelDataToJson } from './parser.js';
                   });
                   
                   if (savedAnswer) {
+                    let score = undefined;
+                    const evaluation = savedAnswer.countermeasureEvaluation || savedAnswer.CountermeasureEvaluation || '';
+                    
+                    // 文書形式から数値スコアに逆変換
+                    if (evaluation === "該当なし") {
+                      score = 0;
+                    } else if (evaluation && evaluation.trim() !== '') {
+                      // item.optionsからテキストに対応するスコアを検索
+                      const matchingOption = item.options?.find(opt => opt.text === evaluation);
+                      if (matchingOption && matchingOption.score !== undefined) {
+                        score = matchingOption.score;
+                      } else {
+                        // 数値として解析を試行
+                        const numValue = parseInt(evaluation);
+                        if (!isNaN(numValue)) {
+                          score = numValue;
+                        }
+                      }
+                    }
+                    
+                    const comment = savedAnswer.comment || savedAnswer.Comment || '';
+                    
                     loadedAnswers[item.id] = {
-                      score: savedAnswer.countermeasureEvaluation ? parseInt(savedAnswer.countermeasureEvaluation) : undefined
+                      score: score,
+                      comment: comment || undefined
                     };
                   }
                 });
@@ -216,25 +239,38 @@ import { parseExcelDataToJson } from './parser.js';
         return;
       }
 
-      // 回答データを整理してAPIに送信する形式に変換
+      // 回答データを整理してAPIに送信する形式に変換（全項目を送信、未回答も含む）
       const answerItems = [];
 
-      // surveyDataから質問情報を取得し、answersと組み合わせる
+      // surveyDataから質問情報を取得し、answersと組み合わせる（全項目をループ）
       surveyData.forEach(category => {
         category.subcategories.forEach(subcategory => {
           subcategory.items.forEach(item => {
             const answer = answers[item.id];
+            
+            // スコアを文書形式に変換（GetSurveyQuestionsと同じ形式）
+            let evaluationText = null;
             if (answer && answer.score !== undefined) {
-              answerItems.push({
-                itemId: item.id,
-                questionNumber: item.questionNumber,
-                chuItemNumber: item.chuItemNumber,
-                category: category.category,
-                subcategory: subcategory.name,
-                question: item.question,
-                countermeasureEvaluation: answer.score !== undefined ? answer.score.toString() : null
-              });
+              if (answer.score === 0) {
+                evaluationText = "該当なし";
+              } else {
+                // item.optionsからスコアに対応するテキストを検索
+                const matchingOption = item.options?.find(opt => opt.score === answer.score);
+                evaluationText = matchingOption ? matchingOption.text : answer.score.toString();
+              }
             }
+            
+            // 全項目を送信（回答の有無に関わらず）
+            answerItems.push({
+              itemId: item.id,
+              questionNumber: item.questionNumber,
+              chuItemNumber: item.chuItemNumber,
+              category: category.category,
+              subcategory: subcategory.name,
+              question: item.question,
+              countermeasureEvaluation: evaluationText, // 文書形式で送信
+              comment: answer?.comment || null // コメントも送信
+            });
           });
         });
       });
