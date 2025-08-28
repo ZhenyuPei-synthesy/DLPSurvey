@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 import { parseExcelDataToJson } from './parser.js'; 
 
-const SurveyForm = ({ respondentId, onComplete }) => {
+  const SurveyForm = ({ respondentId, onComplete, onTemporarySaved }) => {
   const [surveyData, setSurveyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -255,6 +255,16 @@ const SurveyForm = ({ respondentId, onComplete }) => {
 
       if (response.ok) {
         setTempSaveStatus('success');
+        // try to read answerNumber from response
+        try {
+          const json = await response.json();
+          const answerNumber = json?.answerNumber || sessionStorage.getItem('answerNumber');
+          const email = sessionStorage.getItem('respondentEmail') || null;
+          if (answerNumber) sessionStorage.setItem('answerNumber', answerNumber);
+          if (onTemporarySaved) onTemporarySaved(answerNumber, email);
+        } catch (e) {
+          // ignore JSON parse errors
+        }
         setTimeout(() => setTempSaveStatus(null), 3000); // 3秒後にメッセージを消す
       } else {
         setTempSaveStatus('error');
@@ -269,18 +279,18 @@ const SurveyForm = ({ respondentId, onComplete }) => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-slate-50">
+      <div className="flex justify-center items-center h-full bg-slate-50">
         <p className="text-lg text-slate-600">アンケートを読み込んでいます...</p>
       </div>
     );
   }
 
   if (error) {
-    return <div className="flex justify-center items-center min-h-screen bg-slate-50 text-red-600">エラー: {error}</div>;
+    return <div className="flex justify-center items-center h-full bg-slate-50 text-red-600">エラー: {error}</div>;
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen p-4 sm:p-8 font-sans">
+    <div className="bg-slate-50 h-full p-4 sm:p-8 font-sans">
       <div className="max-w-4xl mx-auto">
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">

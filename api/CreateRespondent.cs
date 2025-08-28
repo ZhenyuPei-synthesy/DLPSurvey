@@ -65,13 +65,30 @@ DECLARE @next BIGINT;
 SELECT @next = ISNULL(MAX(TRY_CAST([回答者番号] AS BIGINT)), 0) + 1
 FROM [dbo].[Respondent$] WITH (TABLOCKX, HOLDLOCK);
 
-INSERT INTO [dbo].[Respondent$] ([回答者番号],[企業名],[部署名],[役職名],[氏名],[メールアドレス],[電話番号],[作成日時],[回答ステータス])
-VALUES (@next,@company,@department,@jobTitle,@name,@email,@phone,@created,@status);
+-- insert sequential respondent number into [回答者番号] and answer number into [回答番号]
+INSERT INTO [dbo].[Respondent$] ([回答者番号],[企業名],[部署名],[役職名],[氏名],[メールアドレス],[電話番号],[作成日時],[回答時刻],[回答番号],[回答ステータス])
+VALUES (@next,@company,@department,@jobTitle,@name,@email,@phone,@created,@answerTime,@answerNumber,@status);
 
 COMMIT;
 SELECT @next;
 ";
                     var cmd = new SqlCommand(sql, conn);
+
+                    // generate answer number with 'SY' prefix + 12 digit random number
+                    string answerNumber;
+                    try
+                    {
+                        var buffer = new byte[8];
+                        System.Security.Cryptography.RandomNumberGenerator.Fill(buffer);
+                        ulong rnd = BitConverter.ToUInt64(buffer, 0);
+                        var val = rnd % 1000000000000UL; // 12 digits
+                        answerNumber = "SY" + val.ToString("D12");
+                    }
+                    catch
+                    {
+                        var rnd = new Random();
+                        answerNumber = "SY" + (rnd.Next(0, 1000000).ToString("D6") + rnd.Next(0, 1000000).ToString("D6"));
+                    }
 
                     cmd.Parameters.AddWithValue("@company", string.IsNullOrEmpty(company) ? (object)DBNull.Value : company);
                     cmd.Parameters.AddWithValue("@department", string.IsNullOrEmpty(department) ? (object)DBNull.Value : department);
@@ -79,8 +96,10 @@ SELECT @next;
                     cmd.Parameters.AddWithValue("@name", string.IsNullOrEmpty(name) ? (object)DBNull.Value : name);
                     cmd.Parameters.AddWithValue("@email", string.IsNullOrEmpty(email) ? (object)DBNull.Value : email);
                     cmd.Parameters.AddWithValue("@phone", string.IsNullOrEmpty(phone) ? (object)DBNull.Value : phone);
-                    // insert current UTC time for creation and mark status as '回答中'
+                    // insert current UTC time for creation, answer time and mark status as '回答中'
                     cmd.Parameters.AddWithValue("@created", DateTime.UtcNow);
+                    cmd.Parameters.AddWithValue("@answerTime", DateTime.UtcNow);
+                    cmd.Parameters.AddWithValue("@answerNumber", string.IsNullOrEmpty(answerNumber) ? (object)DBNull.Value : answerNumber);
                     cmd.Parameters.AddWithValue("@status", "回答中");
 
                     _logger.LogInformation("Executing SQL: {sql}", sql);
@@ -89,11 +108,11 @@ SELECT @next;
                         _logger.LogInformation("Param {name} = {value}", p.ParameterName, p.Value == DBNull.Value ? "<DBNULL>" : p.Value);
                     }
 
-                    var insertedId = await cmd.ExecuteScalarAsync();
-                    _logger.LogInformation("SQL executed, inserted id: {id}", insertedId ?? "(null)");
+                    var insertedNext = await cmd.ExecuteScalarAsync();
+                    _logger.LogInformation("SQL executed, next id: {val}", insertedNext ?? "(null)");
 
                     response.StatusCode = HttpStatusCode.OK;
-                    await response.WriteAsJsonAsync(new { success = true, respondentId = insertedId });
+                    await response.WriteAsJsonAsync(new { success = true, respondentId = insertedNext, answerNumber = answerNumber });
                     return response;
                 }
             }

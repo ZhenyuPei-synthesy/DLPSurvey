@@ -150,11 +150,7 @@ const Report = ({ answers, surveyData, onRestart }) => {
   return (
     <div className="bg-slate-50 min-h-screen p-4 sm:p-8 font-sans">
       <div className="max-w-6xl mx-auto">
-        {/* ヘッダー */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">機密情報管理 評価チェックリスト</h1>
-          <p className="text-slate-600">自社の情報管理体制を評価し、改善点を見つけましょう。</p>
-        </div>
+  {/* header removed per request */}
 
         {/* レーダーチャートセクション */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">

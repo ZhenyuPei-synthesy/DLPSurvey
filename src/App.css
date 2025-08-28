@@ -1,8 +1,17 @@
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
   text-align: center;
+  box-sizing: border-box;
+}
+
+/* Make the page background match the content background (tailwind's slate-50) */
+html, body {
+  height: 100%;
+  margin: 0;
+  background-color: #f8fafc; /* slate-50 */
 }
 
 .logo {

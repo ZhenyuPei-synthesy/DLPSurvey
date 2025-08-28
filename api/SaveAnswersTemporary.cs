@@ -85,6 +85,25 @@ namespace Company.Function
                         
                         await insertCmd.ExecuteNonQueryAsync();
                     }
+
+                    // 回答者テーブルのステータスを「一時保存」に更新
+                    try
+                    {
+                        var updateCmd = new SqlCommand(@"
+                            UPDATE [Respondent$]
+                            SET [回答ステータス] = @Status
+                            WHERE [回答者番号] = @RespondentId", connection);
+
+                        updateCmd.Parameters.AddWithValue("@Status", "一時保存");
+                        updateCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId ?? "");
+
+                        await updateCmd.ExecuteNonQueryAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        // ステータス更新が失敗しても一時保存自体は成功として扱うがログは残す
+                        _logger.LogWarning(ex, "Failed to update respondent status to 一時保存 for {RespondentId}", requestData?.RespondentId);
+                    }
                 }
 
                 response.StatusCode = HttpStatusCode.OK;
