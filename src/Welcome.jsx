@@ -88,7 +88,10 @@ const Welcome = ({ onNext }) => {
       if (respondentId) {
         sessionStorage.setItem('respondentId', respondentId.toString());
       }
-      // store answerNumber and email for resume
+      // store companyName, answerNumber and email for resume/report
+      if (form.company) {
+        sessionStorage.setItem('companyName', form.company);
+      }
       if (answerNumber) {
         sessionStorage.setItem('answerNumber', answerNumber.toString());
       }
@@ -136,6 +139,14 @@ const Welcome = ({ onNext }) => {
       }
 
       const json = await res.json();
+      
+      // 回答済みの場合は専用メッセージを表示
+      if (json.completed) {
+        setResumeError(json.error || 'このアンケートは既に回答が完了しています。');
+        setIsResuming(false);
+        return;
+      }
+      
       const respondentId = json.respondentId;
       
       if (respondentId) {
@@ -177,8 +188,57 @@ const Welcome = ({ onNext }) => {
 
       <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2 bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">本アセスメントについて</h2>
-          <p className="text-slate-600">AAA</p>
+          <h2 className="text-xl font-semibold mb-4">背景と目的</h2>
+          <p className="text-slate-600 mb-4">
+            データ保護は、企業の競争力や社会的信用を維持する上で不可欠な経営課題です。特に生成AIの普及は、意図しない形での情報漏洩という、これまで想定されなかった新たな脅威を生んでいます。
+          </p>
+
+          <p className="text-slate-600 mb-4">
+            本アセスメントは、AI時代における貴社の情報管理体制の現状を正確に把握することを目的としています。客観的な評価を通じて課題を可視化し、AIを安全に活用できるセキュリティ体制の構築を支援します。
+          </p>
+
+          <p className="text-slate-600 mb-4">
+            組織全体の状況を正確に把握するため、貴社のIT・人事・法務部門等のご協力を想定しています。
+          </p>
+
+          <h3 className="text-lg font-medium mb-3">本アセスメントの作成方法について</h3>
+          <p className="text-slate-600 mb-3">
+            客観性と信頼性を担保するため、以下の公的な指針に基づき設計しています。
+          </p>
+          <ul className="list-disc list-inside text-slate-600 mb-4 space-y-2">
+            <li>
+              <strong>経済産業省「営業秘密管理指針」</strong>
+              <div className="text-sm text-slate-500">営業秘密管理の基本ルールが実践されているかを確認します。</div>
+            </li>
+            <li>
+              <strong>IPA「組織における内部不正防止ガイドライン」</strong>
+              <div className="text-sm text-slate-500">情報管理ルールの理解度や、不正を抑制する組織風土を把握します。</div>
+            </li>
+          </ul>
+
+          <p className="text-slate-600 mb-4">
+            これらの公的文書を拠り所とすることで、AI時代の脅威に対応する網羅的かつ実践的な現状評価が可能となります。
+          </p>
+
+          <h3 className="text-lg font-medium mb-3">ご協力いただいた企業様への特典</h3>
+          <ul className="list-disc list-inside text-slate-600 space-y-2">
+            <li>
+              <strong>AIによる簡易診断レポート</strong>
+              <div className="text-sm text-slate-500">回答後すぐに、現状の強みと課題をまとめたレポートをダウンロードいただけます。</div>
+            </li>
+            <li>
+              <strong>専門家による詳細な改善提案</strong>
+              <div className="text-sm text-slate-500">ご希望の企業様には、専門家が結果を分析し、改善策とロードマップをご提案します。</div>
+            </li>
+            <li>
+              <strong>業界ベンチマークレポートのご提供</strong>
+              <div className="text-sm text-slate-500">統計利用にご協力いただける企業様には、3ヶ月後に業界ベンチマークレポートを無償でご提供します。</div>
+            </li>
+          </ul>
+
+          <p className="text-slate-600 mt-4">
+            AI技術の恩恵を安全に享受し、貴社の持続的成長を守るため、本アセスメントの趣旨にご理解とご協力をいただけますようお願い申し上げます。
+          </p>
         </div>
 
   <div className="bg-white p-6 rounded-lg shadow-sm">

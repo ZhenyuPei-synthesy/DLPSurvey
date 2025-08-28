@@ -55,25 +55,31 @@ namespace Company.Function
                 }
 
                 string? respondentId = null;
+                string? status = null;
 
-                // Email + 回答番号で回答者番号を検索（回答ステータスが「一時保存」のもの）
+                // Email + 回答番号で回答者番号と回答ステータスを検索
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
                     
                     var selectCmd = new SqlCommand(@"
-                        SELECT TOP 1 [回答者番号] 
+                        SELECT TOP 1 [回答者番号], [回答ステータス]
                         FROM [Respondent$]
                         WHERE [メールアドレス] = @Email 
                           AND [回答番号] = @AnswerNumber 
-                          AND [回答ステータス] = '一時保存'
                         ORDER BY [作成日時] DESC", connection);
                     
                     selectCmd.Parameters.AddWithValue("@Email", requestData.Email);
                     selectCmd.Parameters.AddWithValue("@AnswerNumber", requestData.AnswerNumber);
                     
-                    var result = await selectCmd.ExecuteScalarAsync();
-                    respondentId = result?.ToString();
+                    using (var reader = await selectCmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            respondentId = reader["回答者番号"]?.ToString();
+                            status = reader["回答ステータス"]?.ToString();
+                        }
+                    }
                 }
 
                 if (string.IsNullOrEmpty(respondentId))
@@ -81,7 +87,30 @@ namespace Company.Function
                     response.StatusCode = HttpStatusCode.NotFound;
                     await response.WriteAsJsonAsync(new { 
                         success = false, 
-                        error = "No temporary save found for the provided email and answer number" 
+                        error = "No survey record found for the provided email and answer number" 
+                    });
+                    return response;
+                }
+
+                // 回答ステータスが「回答済」の場合は専用メッセージを返す
+                if (status == "回答済")
+                {
+                    response.StatusCode = HttpStatusCode.OK;
+                    await response.WriteAsJsonAsync(new { 
+                        success = false,
+                        completed = true, 
+                        error = "このアンケートは既に回答が完了しています。ご協力ありがとうございました。" 
+                    });
+                    return response;
+                }
+
+                // 回答ステータスが「一時保存」でない場合
+                if (status != "一時保存")
+                {
+                    response.StatusCode = HttpStatusCode.BadRequest;
+                    await response.WriteAsJsonAsync(new { 
+                        success = false, 
+                        error = "This survey is not available for resumption" 
                     });
                     return response;
                 }

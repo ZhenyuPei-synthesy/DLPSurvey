@@ -9,6 +9,8 @@ import {
   Legend,
 } from 'chart.js';
 import { Radar } from 'react-chartjs-2';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 ChartJS.register(
   RadialLinearScale,
@@ -19,7 +21,111 @@ ChartJS.register(
   Legend
 );
 
-const Report = ({ answers, surveyData, onRestart }) => {
+const Report = ({ answers, surveyData }) => {
+  // PDFダウンロード機能
+  const downloadPDF = async () => {
+    try {
+      // 企業名を取得（sessionStorageから）
+      const companyName = sessionStorage.getItem('companyName') || '企業名未設定';
+      
+      // すべてのダウンロードボタンを一時的に隠す
+      const downloadBtns = document.querySelectorAll('.download-btn');
+      downloadBtns.forEach(btn => btn.style.display = 'none');
+      
+      // 少し待ってからキャプチャ（レンダリング完了を待つ）
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const element = document.getElementById('report-content');
+      
+      // html2canvasの設定を改善
+      const canvas = await html2canvas(element, {
+        scale: 3, // より高解像度
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        letterRendering: true, // テキストレンダリング改善
+        foreignObjectRendering: false, // SVGレンダリング改善
+        imageTimeout: 15000,
+        removeContainer: true,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 1200, // 固定幅でレンダリング
+        windowHeight: element.scrollHeight
+      });
+      
+      const imgData = canvas.toDataURL('image/jpeg', 0.95); // JPEG形式で圧縮率改善
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const imgWidth = pdfWidth - 20; // マージンを考慮
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // ページ分割の改善
+      let yPosition = 10; // 上マージン
+      const pageHeight = pdfHeight - 20; // 上下マージンを考慮
+      
+      if (imgHeight <= pageHeight) {
+        // 1ページに収まる場合
+        pdf.addImage(imgData, 'JPEG', 10, yPosition, imgWidth, imgHeight);
+      } else {
+        // 複数ページに分割
+        let remainingHeight = imgHeight;
+        let sourceY = 0;
+        
+        while (remainingHeight > 0) {
+          const currentPageHeight = Math.min(remainingHeight, pageHeight);
+          const sourceHeight = (currentPageHeight * canvas.height) / imgHeight;
+          
+          // 現在のページ用のキャンバスを作成
+          const pageCanvas = document.createElement('canvas');
+          const pageCtx = pageCanvas.getContext('2d');
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = sourceHeight;
+          
+          // 背景を白に設定
+          pageCtx.fillStyle = '#ffffff';
+          pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          
+          // 元のキャンバスから該当部分を描画
+          pageCtx.drawImage(
+            canvas,
+            0, sourceY, canvas.width, sourceHeight,
+            0, 0, pageCanvas.width, pageCanvas.height
+          );
+          
+          const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+          
+          if (sourceY > 0) {
+            pdf.addPage();
+          }
+          
+          pdf.addImage(pageImgData, 'JPEG', 10, 10, imgWidth, currentPageHeight);
+          
+          sourceY += sourceHeight;
+          remainingHeight -= currentPageHeight;
+        }
+      }
+      
+      // ファイル名を指定の形式で生成
+      const filename = `${companyName}様_AI時代の内部情報漏洩対策アセスメント結果.pdf`;
+      pdf.save(filename);
+      
+      // ダウンロードボタンを再表示
+      downloadBtns.forEach(btn => btn.style.display = 'inline-flex');
+      
+    } catch (error) {
+      console.error('PDF生成エラー:', error);
+      alert('PDFの生成中にエラーが発生しました。');
+      
+      // エラー時もボタンを再表示
+      const downloadBtns = document.querySelectorAll('.download-btn');
+      downloadBtns.forEach(btn => btn.style.display = 'inline-flex');
+    }
+  };
   // カテゴリごとの平均スコアを計算
   const calculateCategoryScores = () => {
     const categoryScores = {};
@@ -149,8 +255,65 @@ const Report = ({ answers, surveyData, onRestart }) => {
 
   return (
     <div className="bg-slate-50 min-h-screen p-4 sm:p-8 font-sans">
+      <style jsx>{`
+        @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+        }
+        
+        /* PDF生成時のレイアウト改善 */
+        #report-content {
+          font-size: 14px;
+          line-height: 1.4;
+        }
+        
+        #report-content table {
+          page-break-inside: avoid;
+        }
+        
+        #report-content .bg-white {
+          page-break-inside: avoid;
+          margin-bottom: 20px;
+        }
+        
+        #report-content .rounded-lg {
+          border-radius: 8px;
+        }
+        
+        /* テーブル内の文字切れ防止 */
+        #report-content table td {
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          hyphens: auto;
+        }
+        
+        /* 評価点の円形バッジの改善 */
+        #report-content .inline-flex.items-center.px-2\\.5.py-0\\.5 {
+          display: inline-block !important;
+          text-align: center;
+          min-width: 40px;
+          height: 24px;
+          line-height: 24px;
+          padding: 0 8px;
+        }
+      `}</style>
       <div className="max-w-6xl mx-auto">
-  {/* header removed per request */}
+        {/* PDFダウンロードボタン */}
+        <div className="text-center mb-6">
+          <button
+            onClick={downloadPDF}
+            className="download-btn inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            ダウンロード
+          </button>
+        </div>
+
+        <div id="report-content">
 
         {/* レーダーチャートセクション */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
@@ -250,60 +413,58 @@ const Report = ({ answers, surveyData, onRestart }) => {
         </div>
 
         {/* 詳細評価シート */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" style={{breakInside: 'avoid'}}>
           <h2 className="text-2xl font-bold mb-6">詳細評価シート</h2>
           
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200" style={{tableLayout: 'fixed', width: '100%'}}>
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '35%'}}>
                     項目
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '6ch'}}>
                     評価点
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '20%'}}>
                     コメント
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    改善策
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '20%'}}>
+                    リスク
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '15%'}}>
                     関連法規
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {detailData.map((item, index) => (
-                  <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-md">
+                  <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} style={{breakInside: 'avoid'}}>
+                    <td className="px-4 py-3 text-sm text-gray-900" style={{wordWrap: 'break-word', maxWidth: '200px'}}>
                       {item.question}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        item.score === '未評価' ? 'bg-gray-100 text-gray-800' :
-                        parseInt(item.score) >= 4 ? 'bg-green-100 text-green-800' :
-                        parseInt(item.score) >= 2 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {item.score}
-                      </span>
+                    <td className="px-4 py-3 text-center" style={{width: '6ch'}}>
+                      {item.score === '未評価' ? (
+                        // 未評価はバッジを表示しない（空にする）
+                        null
+                      ) : (
+                        <div className={`inline-block w-8 h-8 rounded-full text-xs font-medium leading-8 text-center ${
+                          parseInt(item.score) >= 4 ? 'bg-green-100 text-green-800' :
+                          parseInt(item.score) >= 2 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {item.score}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                      <div className="truncate" title={item.comment}>
-                        {item.comment}
-                      </div>
+                    <td className="px-4 py-3 text-sm text-gray-900" style={{wordWrap: 'break-word', maxWidth: '150px'}}>
+                      {item.comment}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                      <div className="truncate" title={item.risk}>
-                        {item.risk}
-                      </div>
+                    <td className="px-4 py-3 text-sm text-gray-900" style={{wordWrap: 'break-word', maxWidth: '150px'}}>
+                      {item.risk}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                      <div className="truncate" title={item.relatedRegulations}>
-                        {item.relatedRegulations}
-                      </div>
+                    <td className="px-4 py-3 text-sm text-gray-900" style={{wordWrap: 'break-word', maxWidth: '100px'}}>
+                      {item.relatedRegulations}
                     </td>
                   </tr>
                 ))}
@@ -315,11 +476,15 @@ const Report = ({ answers, surveyData, onRestart }) => {
         {/* 戻るボタン */}
         <div className="text-center mt-8">
           <button
-            onClick={onRestart}
-            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            onClick={downloadPDF}
+            className="download-btn inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            新しいアンケートを開始
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            ダウンロード
           </button>
+        </div>
         </div>
       </div>
     </div>

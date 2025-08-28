@@ -194,10 +194,59 @@ import { parseExcelDataToJson } from './parser.js';
 
     try {
       console.log('Submitting answers:', answers);
+      
+      // セッションストレージから回答者番号を取得
+      const storedRespondentId = sessionStorage.getItem('respondentId');
+      const currentRespondentId = storedRespondentId || respondentId;
+
+      if (!currentRespondentId) {
+        setError('回答者番号が見つかりません。最初からやり直してください。');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 回答データを整理してAPIに送信する形式に変換（全項目を送信、未回答はNULL）
+      const answerItems = [];
+
+      // surveyDataから質問情報を取得し、answersと組み合わせる（全項目をループ）
+      surveyData.forEach(category => {
+        category.subcategories.forEach(subcategory => {
+          subcategory.items.forEach(item => {
+            const answer = answers[item.id];
+
+            // スコアを文書形式に変換（GetSurveyQuestionsと同じ形式）
+            let evaluationText = null;
+            if (answer && answer.score !== undefined) {
+              if (answer.score === 0) {
+                evaluationText = "該当なし";
+              } else {
+                const matchingOption = item.options?.find(opt => opt.score === answer.score);
+                evaluationText = matchingOption ? matchingOption.text : answer.score.toString();
+              }
+            }
+
+            // 全項目を送信（未回答はNULLとして送る）
+            answerItems.push({
+              itemId: item.id,
+              questionNumber: item.questionNumber,
+              chuItemNumber: item.chuItemNumber,
+              category: category.category,
+              subcategory: subcategory.name,
+              question: item.question,
+              countermeasureEvaluation: evaluationText, // 未回答は null のまま
+              comment: answer?.comment || null
+            });
+          });
+        });
+      });
+      
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(answers),
+        body: JSON.stringify({
+          respondentId: currentRespondentId,
+          answerItems: answerItems
+        }),
       });
 
       if (response.ok) {

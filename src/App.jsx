@@ -103,6 +103,7 @@ function App() {
   };
 
   const handleSurveyComplete = (answers, data) => {
+    window.scrollTo(0, 0);
     setSurveyAnswers(answers);
     setSurveyData(data);
     setShowReport(true);
@@ -136,29 +137,20 @@ function App() {
     setShowResumeInfo(false);
   };
 
-  const handleRestart = () => {
-    setStarted(false);
-    setShowReport(false);
-    setSurveyAnswers({});
-    setSurveyData([]);
-    setRespondentId(null);
-    // セッションストレージをクリア
-    sessionStorage.removeItem('respondentId');
-    sessionStorage.removeItem('surveyStarted');
-  };
-
   return (
   <div className="flex flex-col min-h-screen">
-      <div className="relative">
+      {/* 固定ヘッダ */}
+      <header className="fixed top-0 left-0 right-0 z-30">
+        <div className="absolute top-4 left-6 text-white font-semibold z-40" style={{ fontSize: '1.2rem', transform: 'scale(1.2)', transformOrigin: 'left top' }}>Synthesy株式会社</div>
         <div className="h-48 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 flex items-center">
           <div className="max-w-6xl mx-auto px-6">
             <h1 className="text-white text-3xl md:text-4xl font-extrabold">AI時代の内部情報漏洩対策アセスメント</h1>
           </div>
         </div>
-      </div>
+      </header>
 
-    {/* コンテンツ領域：ヘッダー高さ (h-48 = 12rem) を除いた高さを確保し、空き領域の色差を意識させない */}
-    <div style={{ minHeight: 'calc(100vh - 12rem)' }}>
+    {/* コンテンツ領域：ヘッダー高さ (h-48 = 12rem) 分の上パディングを付与 */}
+    <div style={{ minHeight: 'calc(100vh - 12rem)', paddingTop: '12rem' }}>
         {!started ? (
           <Welcome onNext={handleNext} />
         ) : showResumeInfo ? (
@@ -167,7 +159,6 @@ function App() {
           <Report 
             answers={surveyAnswers} 
             surveyData={surveyData} 
-            onRestart={handleRestart}
           />
         ) : (
           <SurveyForm 
