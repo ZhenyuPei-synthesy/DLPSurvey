@@ -9,4 +9,16 @@ export default defineConfig({
     sourcemap: false,
     minify: true
   }
+  ,
+  server: {
+    // proxy /api requests to local Azure Functions host during development
+    proxy: {
+      '/api': {
+        target: 'http://localhost:7071',
+        changeOrigin: true,
+        secure: false,
+        ws: false
+      }
+    }
+  }
 })

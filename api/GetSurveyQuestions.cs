@@ -92,23 +92,28 @@ namespace Company.Function
 
             try
             {
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    await connection.OpenAsync();
-                    // Query templates joined with options. Use bracketed identifiers for tables with $ in name.
-                    var sql = @"
-SELECT 
-  t.質問番号 AS QuestionNumber,
-  t.大項目 AS DaiItem,
-  t.中項目 AS ChuItem,
-  t.チェック項目 AS CheckItem,
-  t.リスク AS Risk,
-  o.対策評価 AS OptionRaw
-FROM dbo.[SurveyTemplate$] t
-LEFT JOIN dbo.[SurveyOptions$] o ON t.質問番号 = o.質問番号
-ORDER BY t.質問番号, o.対策評価";
+                                using (var connection = new SqlConnection(connectionString))
+                                {
+                                        await connection.OpenAsync();
 
-                    var cmd = new SqlCommand(sql, connection);
+                                        // Simplified: always use 'チェック項目番号' as the join / question identifier
+                                        var templateTable = "SurveyTemplate$";
+                                        var optionsTable = "SurveyOptions$";
+                                        var joinCol = "チェック項目番号";
+
+                                        var sql = $@"
+SELECT 
+    t.[{joinCol}] AS QuestionNumber,
+    t.[大項目] AS DaiItem,
+    t.[中項目] AS ChuItem,
+    t.[チェック項目] AS CheckItem,
+    t.[リスク] AS Risk,
+    o.[対策評価] AS OptionRaw
+FROM dbo.[{templateTable}] t
+LEFT JOIN dbo.[{optionsTable}] o ON t.[{joinCol}] = o.[{joinCol}]
+ORDER BY t.[{joinCol}], o.[対策評価]";
+
+                                        var cmd = new SqlCommand(sql, connection);
                     using (var reader = await cmd.ExecuteReaderAsync())
                     {
                         // aggregate by question number
@@ -116,19 +121,19 @@ ORDER BY t.質問番号, o.対策評価";
                         while (await reader.ReadAsync())
                         {
                             var qnum = reader["QuestionNumber"]?.ToString() ?? string.Empty;
-                            if (!map.TryGetValue(qnum, out var q))
-                            {
-                                q = new SurveyQuestion
+                                if (!map.TryGetValue(qnum, out var q))
                                 {
-                                    QuestionNumber = qnum,
-                                    DaiItem = reader["DaiItem"]?.ToString() ?? string.Empty,
-                                    ChuItem = reader["ChuItem"]?.ToString() ?? string.Empty,
-                                    CheckItem = reader["CheckItem"]?.ToString() ?? string.Empty,
-                                    Risk = reader["Risk"]?.ToString() ?? string.Empty,
-                                    Options = new List<Option>()
-                                };
-                                map[qnum] = q;
-                            }
+                                    q = new SurveyQuestion
+                                    {
+                                        QuestionNumber = qnum,
+                                        DaiItem = reader["DaiItem"]?.ToString() ?? string.Empty,
+                                        ChuItem = reader["ChuItem"]?.ToString() ?? string.Empty,
+                                        CheckItem = reader["CheckItem"]?.ToString() ?? string.Empty,
+                                        Risk = reader["Risk"]?.ToString() ?? string.Empty,
+                                        Options = new List<Option>()
+                                    };
+                                    map[qnum] = q;
+                                }
 
                             var optRaw = reader["OptionRaw"] == DBNull.Value ? null : reader["OptionRaw"].ToString();
                             if (!string.IsNullOrWhiteSpace(optRaw))
@@ -136,10 +141,12 @@ ORDER BY t.質問番号, o.対策評価";
                                 var score = ParseLeadingNumber(optRaw);
                                 var text = ExtractTextWithoutLeadingNumber(optRaw);
                                 // dedupe by text or score
-                                var exists = q.Options.Any(x => (!string.IsNullOrEmpty(x.Text) && x.Text == text) || (x.Score.HasValue && score.HasValue && x.Score == score));
+                                var opts = q.Options ?? new List<Option>();
+                                var exists = opts.Any(x => (!string.IsNullOrEmpty(x.Text) && x.Text == text) || (x.Score.HasValue && score.HasValue && x.Score == score));
                                 if (!exists)
                                 {
-                                    q.Options.Add(new Option { Score = score, Text = text });
+                                    opts.Add(new Option { Score = score, Text = text });
+                                    q.Options = opts;
                                 }
                             }
                         }
@@ -149,7 +156,8 @@ ORDER BY t.質問番号, o.対策評価";
                         {
                             var item = kv.Value;
                             // sort options: by Score ascending (nulls last), then by Text
-                            item.Options = item.Options
+                            var opts2 = item.Options ?? new List<Option>();
+                            item.Options = opts2
                                 .OrderBy(o => o.Score.HasValue ? 0 : 1)
                                 .ThenBy(o => o.Score ?? int.MaxValue)
                                 .ThenBy(o => o.Text)
@@ -210,19 +218,19 @@ ORDER BY t.質問番号, o.対策評価";
 
         public class SurveyQuestion
         {
-            public string QuestionNumber { get; set; }
-            public string DaiItem { get; set; }
-            public string ChuItem { get; set; }
-            public string CheckItem { get; set; }
-            public string TargetEvaluation { get; set; }
-            public string Risk { get; set; }
-            public List<Option> Options { get; set; }
+            public string? QuestionNumber { get; set; }
+            public string? DaiItem { get; set; }
+            public string? ChuItem { get; set; }
+            public string? CheckItem { get; set; }
+            public string? TargetEvaluation { get; set; }
+            public string? Risk { get; set; }
+            public List<Option>? Options { get; set; }
         }
 
         public class Option
         {
             public int? Score { get; set; }
-            public string Text { get; set; }
+            public string? Text { get; set; }
         }
     }
 }
