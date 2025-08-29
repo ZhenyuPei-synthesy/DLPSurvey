@@ -133,12 +133,26 @@ const Welcome = ({ onNext }) => {
         })
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'アセスメントの再開に失敗しました');
-      }
+        // parse response safely: prefer JSON, but fall back to text when not JSON
+        let json;
+        if (!res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'アセスメントの再開に失敗しました');
+          } else {
+            const txt = await res.text();
+            throw new Error(txt || `APIエラー: ${res.status}`);
+          }
+        }
 
-      const json = await res.json();
+        // OK response: try parse JSON, else throw
+        try {
+          json = await res.json();
+        } catch (e) {
+          const txt = await res.text();
+          throw new Error(txt || 'レスポンスの解析に失敗しました');
+        }
       
       // 回答済みの場合は専用メッセージを表示
       if (json.completed) {

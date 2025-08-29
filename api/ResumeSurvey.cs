@@ -40,7 +40,7 @@ namespace Company.Function
                 if (string.IsNullOrEmpty(connectionString))
                 {
                     response.StatusCode = HttpStatusCode.InternalServerError;
-                    await response.WriteStringAsync("Database connection not configured");
+                    await response.WriteAsJsonAsync(new { success = false, error = "Database connection not configured" });
                     return response;
                 }
 
