@@ -121,16 +121,38 @@ namespace Company.Function
                                         [回答時刻] = @AnswerTime
                                     WHERE [回答者番号] = @RespondentId", connection, transaction);
 
-                                updateCmd.Parameters.AddWithValue("@Status", "一時保存");
-                                updateCmd.Parameters.AddWithValue("@AnswerTime", GetJapanNow());
-                                updateCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId ?? "");
+                                // use explicit parameter types to avoid type-inference issues
+                                updateCmd.Parameters.Add(new SqlParameter("@Status", System.Data.SqlDbType.NVarChar, 50) { Value = "一時保存" });
+                                updateCmd.Parameters.Add(new SqlParameter("@AnswerTime", System.Data.SqlDbType.DateTime2) { Value = GetJapanNow() });
 
-                                await updateCmd.ExecuteNonQueryAsync();
+                                // Try to pass RespondentId as INT when possible (common schema), otherwise fall back to string
+                                SqlParameter respondentParam = new SqlParameter("@RespondentId", System.Data.SqlDbType.Int);
+                                if (int.TryParse(requestData?.RespondentId, out var rid))
+                                {
+                                    respondentParam.Value = rid;
+                                }
+                                else if (!string.IsNullOrEmpty(requestData?.RespondentId))
+                                {
+                                    // if schema uses string keys, pass as NVARCHAR via conversion to object
+                                    respondentParam = new SqlParameter("@RespondentId", System.Data.SqlDbType.NVarChar, 100) { Value = requestData.RespondentId };
+                                }
+                                else
+                                {
+                                    respondentParam.Value = DBNull.Value;
+                                }
+
+                                updateCmd.Parameters.Add(respondentParam);
+
+                                var rows = await updateCmd.ExecuteNonQueryAsync();
+                                if (rows == 0)
+                                {
+                                    _logger.LogWarning("Update affected 0 rows when setting status to 一時保存 for RespondentId={RespondentId}", requestData?.RespondentId);
+                                }
                             }
                             catch (Exception ex)
                             {
                                 // ステータス/時刻更新が失敗しても一時保存自体は成功として扱うがログは残す
-                                _logger.LogWarning(ex, "Failed to update respondent status/timestamp to 一時保存 for {RespondentId}", requestData?.RespondentId);
+                                _logger.LogWarning(ex, "Failed to update respondent status/timestamp to 一時保存 for {RespondentId}. Exception: {Message}", requestData?.RespondentId, ex.Message);
                             }
                             
                             transaction.Commit();

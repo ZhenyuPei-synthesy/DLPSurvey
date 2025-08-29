@@ -112,9 +112,9 @@ const Welcome = ({ onNext }) => {
     e.preventDefault();
     setIsResuming(true);
     setResumeError(null);
-    
-    if (!resumeInputs.email || !resumeInputs.answerNumber) {
-      setResumeError('メールアドレスと回答番号を入力してください。');
+
+    if (!resumeInputs.email || !resumeInputs.assessmentNumber) {
+      setResumeError('メールアドレスとアセスメント番号を入力してください。');
       setIsResuming(false);
       return;
     }
@@ -293,7 +293,7 @@ const Welcome = ({ onNext }) => {
             <button onClick={handleResumeToggle} className="text-sm text-blue-600 underline">アセスメント再開</button>
             {showResumeForm && (
               <div className="mt-4 space-y-3">
-                <p className="text-sm text-slate-600">保存したメールアドレスと回答番号を入力してアセスメントを再開できます。</p>
+                <p className="text-sm text-slate-600">保存したメールアドレスとアセスメント番号を入力してアセスメントを再開できます。</p>
                 <form onSubmit={handleResumeSubmit}>
                   <div>
                     <label className="block text-sm text-slate-600">メールアドレス</label>
@@ -307,7 +307,7 @@ const Welcome = ({ onNext }) => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-600">回答番号</label>
+                    <label className="block text-sm text-slate-600">アセスメント番号</label>
                     <input 
                       name="answerNumber" 
                       value={resumeInputs.answerNumber} 
@@ -325,7 +325,7 @@ const Welcome = ({ onNext }) => {
                       disabled={isResuming}
                       className="px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400"
                     >
-                      {isResuming ? '再開中...' : 'アンケート再開'}
+                      {isResuming ? '再開中...' : '再開'}
                     </button>
                   </div>
                 </form>
