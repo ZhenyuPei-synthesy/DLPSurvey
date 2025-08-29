@@ -113,7 +113,7 @@ const Welcome = ({ onNext }) => {
     setIsResuming(true);
     setResumeError(null);
 
-    if (!resumeInputs.email || !resumeInputs.assessmentNumber) {
+    if (!resumeInputs.email || !resumeInputs.answerNumber) {
       setResumeError('メールアドレスとアセスメント番号を入力してください。');
       setIsResuming(false);
       return;
@@ -135,14 +135,14 @@ const Welcome = ({ onNext }) => {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'アンケートの再開に失敗しました');
+        throw new Error(errorData.error || 'アセスメントの再開に失敗しました');
       }
 
       const json = await res.json();
       
       // 回答済みの場合は専用メッセージを表示
       if (json.completed) {
-        setResumeError(json.error || 'このアンケートは既に回答が完了しています。');
+        setResumeError(json.error || 'このアセスメントは既に回答が完了しています。');
         setIsResuming(false);
         return;
       }
@@ -154,8 +154,8 @@ const Welcome = ({ onNext }) => {
         sessionStorage.setItem('respondentId', respondentId.toString());
         sessionStorage.setItem('answerNumber', resumeInputs.answerNumber);
         sessionStorage.setItem('respondentEmail', resumeInputs.email);
-        
-        // アンケートを再開
+
+        // アセスメントを再開
         onNext(respondentId);
       } else {
         throw new Error('回答者IDが取得できませんでした');
