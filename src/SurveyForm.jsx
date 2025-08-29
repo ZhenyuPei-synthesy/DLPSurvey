@@ -384,12 +384,19 @@ import { parseExcelDataToJson } from './parser.js';
                 <button
                   type="button"
                   onClick={() => toggleSection(category.category)}
-                  className="w-full flex justify-between items-center p-5 font-semibold text-xl text-left text-slate-800"
+                  className="w-full flex items-center p-5 font-semibold text-xl text-left text-slate-800"
                 >
-                  <span>{category.category}</span>
-                  <ChevronDownIcon 
-                    className={`w-6 h-6 transition-transform ${openSections[category.category] ? 'rotate-180' : ''}`} 
-                  />
+                  <div className="flex items-center w-full">
+                    <span>{category.category}</span>
+                    {/* 質問数を右寄せで表示 */}
+                    <span className="ml-auto text-lg text-slate-500 tabular-nums">{
+                      /* 各大項目の質問数を合計 (中項目内のitems数を集計) */
+                      (category.subcategories || []).reduce((acc, sc) => acc + ((sc.items && sc.items.length) || 0), 0)
+                    }</span>
+                    <ChevronDownIcon 
+                      className={`w-6 h-6 ml-4 transition-transform ${openSections[category.category] ? 'rotate-180' : ''}`} 
+                    />
+                  </div>
                 </button>
                 
                 {openSections[category.category] && (

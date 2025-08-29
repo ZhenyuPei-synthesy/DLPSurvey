@@ -256,7 +256,7 @@ const Welcome = ({ onNext }) => {
         </div>
 
   <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-medium mb-4">受検者情報</h3>
+          <h3 className="text-lg font-medium mb-4">回答者情報</h3>
           <form onSubmit={handleSubmit}>
             <div className="space-y-3">
               <div>
