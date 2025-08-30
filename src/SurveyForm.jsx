@@ -13,6 +13,10 @@ import { parseExcelDataToJson } from './parser.js';
   const [submissionStatus, setSubmissionStatus] = useState(null);
   const [isSavingTemporary, setIsSavingTemporary] = useState(false);
   const [tempSaveStatus, setTempSaveStatus] = useState(null);
+  
+  // AI評価状態管理
+  const [aiEvaluationStatus, setAiEvaluationStatus] = useState({});
+  // key: subcategoryName, value: { status: 'pending'|'evaluating'|'completed'|'error', evaluationText: string, recommendationText: string, isLocked: boolean, isEditing: boolean }
 
   useEffect(() => {
     const fetchSurveyData = async () => {
@@ -172,11 +176,225 @@ import { parseExcelDataToJson } from './parser.js';
   };
 
   const handleScoreChange = (itemId, score) => {
-    setAnswers(prev => ({ ...prev, [itemId]: { ...prev[itemId], score: score } }));
+    setAnswers(prev => {
+      const newAnswers = { ...prev, [itemId]: { ...prev[itemId], score: score } };
+      
+      // 中項目の完了をチェックして自動AI評価開始
+      setTimeout(() => checkAndStartAutoEvaluation(newAnswers), 100);
+      
+      return newAnswers;
+    });
+  };
+
+  // 中項目完了時の自動AI評価開始チェック
+  const checkAndStartAutoEvaluation = (currentAnswers) => {
+    surveyData.forEach(category => {
+      category.subcategories.forEach(subcategory => {
+        const wasCompleted = isSubcategoryCompleted(subcategory);
+        
+        // 新しい回答で完了判定
+        const isNowCompleted = subcategory.items.every(item => {
+          const answer = currentAnswers[item.id];
+          return answer && answer.score !== undefined;
+        });
+        
+        // 完了状態になり、まだAI評価が開始されていない場合
+        const evaluationStatus = aiEvaluationStatus[subcategory.name];
+        if (isNowCompleted && (!evaluationStatus || evaluationStatus.status === 'pending')) {
+          console.log(`中項目 "${subcategory.name}" が完了しました。自動AI評価を開始します。`);
+          startAiEvaluation(subcategory, true); // 自動開始フラグをtrueに
+        }
+      });
+    });
   };
   
   const handleCommentChange = (itemId, comment) => {
      setAnswers(prev => ({ ...prev, [itemId]: { ...prev[itemId], comment: comment } }));
+  };
+
+  // 中項目の完了判定
+  const isSubcategoryCompleted = (subcategory) => {
+    return subcategory.items.every(item => {
+      const answer = answers[item.id];
+      return answer && answer.score !== undefined;
+    });
+  };
+
+  // 回答フィールドがロックされているかの判定
+  const isSubcategoryLocked = (subcategory) => {
+    const evaluationStatus = aiEvaluationStatus[subcategory.name];
+    return evaluationStatus?.isLocked === true;
+  };
+
+  // 編集モードかどうかの判定
+  const isSubcategoryInEditMode = (subcategory) => {
+    const evaluationStatus = aiEvaluationStatus[subcategory.name];
+    return evaluationStatus?.isEditing === true;
+  };
+
+  // AI評価の開始
+  const startAiEvaluation = async (subcategory, isAutoStart = false) => {
+    const storedRespondentId = sessionStorage.getItem('respondentId');
+    const currentRespondentId = storedRespondentId || respondentId;
+    
+    if (!currentRespondentId) {
+      console.error('回答者番号が見つかりません');
+      return;
+    }
+
+    // 中項目番号を取得（最初のアイテムの中項目番号を使用）
+    const subcategoryId = subcategory.items[0]?.chuItemNumber;
+    
+    if (!subcategoryId) {
+      console.error('中項目番号が見つかりません');
+      return;
+    }
+
+    // AI評価状態を「評価中」に更新し、回答をロック
+    setAiEvaluationStatus(prev => ({
+      ...prev,
+      [subcategory.name]: { 
+        status: 'evaluating',
+        isLocked: true,
+        isEditing: false
+      }
+    }));
+
+    try {
+      const apiUrl = import.meta.env.MODE === 'development' 
+        ? '/api/EvaluateSubcategory'
+        : (import.meta.env.VITE_EVALUATE_SUBCATEGORY_API_URL || '/api/EvaluateSubcategory');
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          respondentId: currentRespondentId,
+          subcategoryId: subcategoryId
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('AI評価開始:', result);
+        
+        // 評価完了を待つためのポーリング開始
+        pollEvaluationStatus(currentRespondentId, subcategory.name, subcategoryId);
+      } else {
+        console.error('AI評価開始に失敗:', response.status);
+        setAiEvaluationStatus(prev => ({
+          ...prev,
+          [subcategory.name]: { status: 'error', isLocked: false, isEditing: false }
+        }));
+      }
+    } catch (error) {
+      console.error('AI評価開始でエラー:', error);
+      setAiEvaluationStatus(prev => ({
+        ...prev,
+        [subcategory.name]: { status: 'error', isLocked: false, isEditing: false }
+      }));
+    }
+  };
+
+  // AI評価状態のポーリング
+  const pollEvaluationStatus = async (respondentId, subcategoryName, subcategoryId) => {
+    const maxAttempts = 30; // 最大30回（約2.5分）
+    let attempts = 0;
+    
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
+        console.log(`AI評価のポーリング最大試行回数に達しました: ${subcategoryName}`);
+        setAiEvaluationStatus(prev => ({
+          ...prev,
+          [subcategoryName]: { 
+            ...prev[subcategoryName],
+            status: 'error', 
+            isLocked: false, 
+            isEditing: false 
+          }
+        }));
+        return;
+      }
+      
+      attempts++;
+      console.log(`AI評価状態チェック ${attempts}/${maxAttempts}: ${subcategoryName} (ID: ${subcategoryId})`);
+      
+      try {
+        const apiUrl = import.meta.env.MODE === 'development' 
+          ? '/api/GetEvaluationStatus'
+          : (import.meta.env.VITE_GET_EVALUATION_STATUS_API_URL || '/api/GetEvaluationStatus');
+
+        const response = await fetch(`${apiUrl}?respondentId=${respondentId}`);
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('評価状態レスポンス:', result);
+          
+          // 中項目番号でマッチング
+          const evaluation = result.evaluations?.find(e => {
+            const responseSubcategoryId = e.subcategoryId || e.SubcategoryId || '';
+            return responseSubcategoryId === subcategoryId;
+          });
+          
+          if (evaluation) {
+            const status = (evaluation.status || evaluation.Status || '').toLowerCase();
+            console.log(`マッチした評価レコード見つかりました: ${subcategoryName}, status: ${status}`);
+            
+            if (status === 'completed') {
+              setAiEvaluationStatus(prev => ({
+                ...prev,
+                [subcategoryName]: {
+                  status: 'completed',
+                  evaluationText: evaluation.evaluationText || evaluation.EvaluationText || '',
+                  recommendationText: evaluation.recommendationText || evaluation.RecommendationText || '',
+                  isLocked: true,
+                  isEditing: false
+                }
+              }));
+              console.log(`AI評価完了: ${subcategoryName}`);
+              return;
+            } else if (status === 'error') {
+              setAiEvaluationStatus(prev => ({
+                ...prev,
+                [subcategoryName]: { 
+                  ...prev[subcategoryName],
+                  status: 'error', 
+                  isLocked: false, 
+                  isEditing: false 
+                }
+              }));
+              console.log(`AI評価エラー: ${subcategoryName}`);
+              return;
+            }
+          } else {
+            console.log(`マッチする評価レコードが見つかりません: ${subcategoryName} (ID: ${subcategoryId})`);
+          }
+        }
+        
+        // 5秒後に再試行
+        setTimeout(poll, 5000);
+      } catch (error) {
+        console.error('評価状態取得でエラー:', error);
+        setTimeout(poll, 5000);
+      }
+    };
+    
+    // 最初の呼び出しを5秒後に実行
+    setTimeout(poll, 5000);
+  };
+
+  // 編集モードに切り替え
+  const switchToEditMode = (subcategory) => {
+    console.log(`編集モードに切り替え: ${subcategory.name}`);
+    setAiEvaluationStatus(prev => ({
+      ...prev,
+      [subcategory.name]: {
+        ...prev[subcategory.name],
+        isLocked: false,
+        isEditing: true,
+        status: 'pending' // 編集モードでは評価リセット
+      }
+    }));
   };
 
   const handleSubmit = async (event) => {
@@ -379,66 +597,166 @@ import { parseExcelDataToJson } from './parser.js';
       <div className="max-w-4xl mx-auto">
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
-            {surveyData.map((category) => (
-              <div key={category.category} className="border border-gray-200 rounded-lg shadow-sm bg-white">
-                <button
-                  type="button"
-                  onClick={() => toggleSection(category.category)}
-                  className="w-full flex items-center p-5 font-semibold text-xl text-left text-slate-800"
-                >
-                  <div className="flex items-center w-full">
-                    <span>{category.category}</span>
-                    {/* 質問数を右寄せで表示 */}
-                    <span className="ml-auto text-lg text-slate-500 tabular-nums">{
-                      /* 各大項目の質問数を合計 (中項目内のitems数を集計) */
-                      (category.subcategories || []).reduce((acc, sc) => acc + ((sc.items && sc.items.length) || 0), 0)
-                    }</span>
-                    <ChevronDownIcon 
-                      className={`w-6 h-6 ml-4 transition-transform ${openSections[category.category] ? 'rotate-180' : ''}`} 
-                    />
-                  </div>
-                </button>
+            {surveyData.map((category) => {
+              // 各大項目の質問数を合計 (中項目内のitems数を集計)
+              const questionCount = (category.subcategories || []).reduce((acc, sc) => acc + ((sc.items && sc.items.length) || 0), 0);
+
+              return (
+                <div key={category.category} className="border border-gray-200 rounded-lg shadow-sm bg-white">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(category.category)}
+                    className="w-full flex items-center p-5 font-semibold text-xl text-left text-slate-800"
+                  >
+                    <div className="flex items-center w-full">
+                      <div className="flex items-center">
+                        <span>{category.category}</span>
+                        {/* 大項目の後ろに () で質問数を表示（例： (8問) ） */}
+                        <span className="ml-3 text-lg text-slate-500 tabular-nums">({questionCount}問)</span>
+                      </div>
+                      <ChevronDownIcon 
+                        className={`w-6 h-6 ml-auto transition-transform ${openSections[category.category] ? 'rotate-180' : ''}`} 
+                      />
+                    </div>
+                  </button>
                 
                 {openSections[category.category] && (
                   <div className="px-5 pb-5 border-t border-gray-200">
                     {/* ★★★ ここからが完全に復元された描画部分です ★★★ */}
                     {category.subcategories.map((subcategory) => (
                       <div key={subcategory.name} className="pt-5">
-                        <h3 className="text-lg font-bold text-slate-700 mb-4">{subcategory.name}</h3>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-bold text-slate-700">{subcategory.name}</h3>
+                          
+                          {/* AI評価ボタン */}
+                          <div className="flex items-center space-x-2">
+                            {isSubcategoryCompleted(subcategory) && (
+                              <>
+                                {/* 評価中 */}
+                                {aiEvaluationStatus[subcategory.name]?.status === 'evaluating' && (
+                                  <div className="flex items-center text-blue-600">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                    <span className="text-sm">AIによる評価中</span>
+                                  </div>
+                                )}
+                                
+                                {/* 評価完了（ロック中） */}
+                                {aiEvaluationStatus[subcategory.name]?.status === 'completed' && 
+                                 aiEvaluationStatus[subcategory.name]?.isLocked && 
+                                 !aiEvaluationStatus[subcategory.name]?.isEditing && (
+                                  <div className="flex items-center space-x-2">
+                                    <div className="flex items-center text-green-600">
+                                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                      <span className="text-sm">AI評価完了</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => switchToEditMode(subcategory)}
+                                      className="px-3 py-1 text-xs font-medium text-orange-700 bg-orange-100 rounded-md hover:bg-orange-200 transition-colors"
+                                    >
+                                      回答を編集
+                                    </button>
+                                  </div>
+                                )}
+                                
+                                {/* 編集モード（手動AI評価開始） */}
+                                {aiEvaluationStatus[subcategory.name]?.isEditing && (
+                                  <div className="flex items-center space-x-2">
+                                    <div className="flex items-center text-orange-600">
+                                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                      <span className="text-sm">回答を編集中</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => startAiEvaluation(subcategory, false)}
+                                      className="px-3 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors"
+                                    >
+                                      AI評価を開始
+                                    </button>
+                                  </div>
+                                )}
+                                
+                                {/* 初回評価またはエラー時 */}
+                                {(!aiEvaluationStatus[subcategory.name] || 
+                                  aiEvaluationStatus[subcategory.name]?.status === 'error' ||
+                                  (aiEvaluationStatus[subcategory.name]?.status === 'pending' && !aiEvaluationStatus[subcategory.name]?.isEditing)) && (
+                                  <div className="flex items-center text-gray-500">
+                                    <span className="text-sm">回答完了時に自動でAI評価を開始します</span>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* AI評価結果の表示 */}
+                        {aiEvaluationStatus[subcategory.name]?.status === 'completed' && (
+                          <div className="mb-4 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
+                            <h4 className="font-semibold text-blue-800 mb-2">AI評価結果</h4>
+                            {aiEvaluationStatus[subcategory.name].evaluationText && (
+                              <p className="text-blue-700 text-sm mb-2">
+                                <strong>評価:</strong> {aiEvaluationStatus[subcategory.name].evaluationText}
+                              </p>
+                            )}
+                            {aiEvaluationStatus[subcategory.name].recommendationText && (
+                              <p className="text-blue-700 text-sm">
+                                <strong>推奨事項:</strong> {aiEvaluationStatus[subcategory.name].recommendationText}
+                              </p>
+                            )}
+                          </div>
+                        )}
                         <div className="space-y-8">
-                          {subcategory.items.map((item) => (
+                          {subcategory.items.map((item) => {
+                            const isDisabled = isSubcategoryLocked(subcategory);
+                            return (
                             <div key={item.id}>
                               <p className="font-semibold text-slate-800 mb-4">{item.question}</p>
                               <div className="space-y-3">
                                 {item.options.map((option) => (
-                                  <label key={option.score} className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                                  <label key={option.score} className={`flex items-start p-4 border rounded-lg transition-colors ${
+                                    isDisabled 
+                                      ? 'bg-gray-50 cursor-not-allowed opacity-70' 
+                                      : 'cursor-pointer hover:bg-slate-50'
+                                  }`}>
                                     <input
                                       type="radio"
                                       name={item.id}
                                       value={option.score}
                                       checked={answers[item.id]?.score === option.score}
                                       onChange={() => handleScoreChange(item.id, option.score)}
+                                      disabled={isDisabled}
                                       className="sr-only peer"
                                     />
-                                    <div className="flex-shrink-0 w-6 h-6 border-2 border-slate-300 rounded-full flex items-center justify-center text-sm font-bold text-slate-400
-                                                    peer-checked:bg-blue-600 peer-checked:border-blue-600 peer-checked:text-white">
+                                    <div className={`flex-shrink-0 w-6 h-6 border-2 border-slate-300 rounded-full flex items-center justify-center text-sm font-bold text-slate-400 peer-checked:bg-blue-600 peer-checked:border-blue-600 peer-checked:text-white ${
+                                      isDisabled ? 'opacity-50' : ''
+                                    }`}>
                                       {option.score}
                                     </div>
-                                    <span className="ml-4 text-slate-600">{option.text}</span>
+                                    <span className={`ml-4 ${isDisabled ? 'text-slate-400' : 'text-slate-600'}`}>{option.text}</span>
                                   </label>
                                 ))}
-                                <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                                <label className={`flex items-start p-4 border rounded-lg transition-colors ${
+                                  isDisabled 
+                                    ? 'bg-gray-50 cursor-not-allowed opacity-70' 
+                                    : 'cursor-pointer hover:bg-slate-50'
+                                }`}>
                                   <input
                                     type="radio"
                                     name={item.id}
                                     value={0}
                                     checked={answers[item.id]?.score === 0}
                                     onChange={() => handleScoreChange(item.id, 0)}
+                                    disabled={isDisabled}
                                     className="sr-only peer"
                                   />
-                                  <div className="flex-shrink-0 w-6 h-6 border-2 border-slate-300 rounded-full flex items-center justify-center text-sm font-bold text-slate-400
-                                                  peer-checked:bg-slate-600 peer-checked:border-slate-600 peer-checked:text-white">0</div>
-                                  <span className="ml-4 text-slate-600">該当なし</span>
+                                  <div className={`flex-shrink-0 w-6 h-6 border-2 border-slate-300 rounded-full flex items-center justify-center text-sm font-bold text-slate-400 peer-checked:bg-slate-600 peer-checked:border-slate-600 peer-checked:text-white ${
+                                    isDisabled ? 'opacity-50' : ''
+                                  }`}>0</div>
+                                  <span className={`ml-4 ${isDisabled ? 'text-slate-400' : 'text-slate-600'}`}>該当なし</span>
                                 </label>
                               </div>
                               <div className="mt-4">
@@ -449,7 +767,10 @@ import { parseExcelDataToJson } from './parser.js';
                                   value={answers[item.id]?.comment || ''}
                                   onChange={(e) => handleCommentChange(item.id, e.target.value)}
                                   placeholder="具体的な状況や課題などを入力..."
-                                  className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                  disabled={isDisabled}
+                                  className={`w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                                    isDisabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                                  }`}
                                 />
                               </div>
                               <div className="mt-4">
@@ -468,7 +789,8 @@ import { parseExcelDataToJson } from './parser.js';
                                 )}
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
@@ -476,7 +798,8 @@ import { parseExcelDataToJson } from './parser.js';
                   </div>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
 
           <div className="mt-8 p-6 bg-white border border-gray-200 rounded-lg shadow-sm text-center">
