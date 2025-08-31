@@ -76,8 +76,8 @@ namespace Company.Function
                         try
                         {
                             // AI評価テーブルにレコード作成または更新（statusをevaluatingに設定）
-                            var upsertCmd = new SqlCommand(@"
-                                IF EXISTS (SELECT 1 FROM [AIAdvice_CHU$] WHERE [回答者番号] = @RespondentId AND [中項目番号] = @SubcategoryId)
+                            var upsertSql = @"
+                                IF EXISTS (SELECT 1 FROM [AIAdvice_CHU$] WITH (UPDLOCK, HOLDLOCK) WHERE [回答者番号] = @RespondentId AND [中項目番号] = @SubcategoryId)
                                 BEGIN
                                     UPDATE [AIAdvice_CHU$] 
                                     SET [status] = 'evaluating',
@@ -88,27 +88,70 @@ namespace Company.Function
                                 BEGIN
                                     INSERT INTO [AIAdvice_CHU$] ([回答者番号], [中項目番号], [status])
                                     VALUES (@RespondentId, @SubcategoryId, 'evaluating')
-                                END", connection, transaction);
-                            
+                                END";
+
+                            var upsertCmd = new SqlCommand(upsertSql, connection, transaction);
                             upsertCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId);
                             upsertCmd.Parameters.AddWithValue("@SubcategoryId", requestData.SubcategoryId);
-                            
-                            await upsertCmd.ExecuteNonQueryAsync();
-                            
-                            await transaction.CommitAsync();
-                            
-                            _logger.LogInformation($"AI評価開始: RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
 
-                            // バックグラウンドでAI評価処理を開始（現在はモック実装）
-                            _ = Task.Run(async () => await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId));
+                            try
+                            {
+                                await upsertCmd.ExecuteNonQueryAsync();
+                                await transaction.CommitAsync();
 
-                            response.StatusCode = HttpStatusCode.OK;
-                            await response.WriteAsJsonAsync(new { 
-                                success = true,
-                                status = "evaluating",
-                                message = "AI evaluation started"
-                            });
-                            return response;
+                                _logger.LogInformation($"AI評価開始: RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+
+                                // バックグラウンドでAI評価処理を開始（現在はモック実装）
+                                _ = Task.Run(async () => await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId));
+
+                                response.StatusCode = HttpStatusCode.OK;
+                                await response.WriteAsJsonAsync(new { 
+                                    success = true,
+                                    status = "evaluating",
+                                    message = "AI evaluation started"
+                                });
+                                return response;
+                            }
+                            catch (SqlException sqlEx) when (sqlEx.Number == 2627)
+                            {
+                                // PK 重複エラーが発生した場合、別のスレッドが既に挿入したとみなして UPDATE を試みる
+                                _logger.LogWarning(sqlEx, "PK duplicate detected during upsert, attempting UPDATE fallback");
+                                try
+                                {
+                                    var fallbackCmd = new SqlCommand(@"
+                                        UPDATE [AIAdvice_CHU$]
+                                        SET [status] = 'evaluating', [updated_at] = GETDATE()
+                                        WHERE [回答者番号] = @RespondentId AND [中項目番号] = @SubcategoryId", connection, transaction);
+                                    fallbackCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId);
+                                    fallbackCmd.Parameters.AddWithValue("@SubcategoryId", requestData.SubcategoryId);
+                                    await fallbackCmd.ExecuteNonQueryAsync();
+                                    await transaction.CommitAsync();
+
+                                    _logger.LogInformation($"AI評価開始(フォールバック): RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+
+                                    _ = Task.Run(async () => await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId));
+
+                                    response.StatusCode = HttpStatusCode.OK;
+                                    await response.WriteAsJsonAsync(new { success = true, status = "evaluating", message = "AI evaluation started (fallback)" });
+                                    return response;
+                                }
+                                catch (Exception fbEx)
+                                {
+                                    try { await transaction.RollbackAsync(); } catch (Exception rbEx) { _logger.LogError(rbEx, "Rollback failed after fallback failure"); }
+                                    _logger.LogError(fbEx, "Fallback UPDATE failed");
+                                    response.StatusCode = HttpStatusCode.InternalServerError;
+                                    await response.WriteAsJsonAsync(new { success = false, error = "Fallback update failed" });
+                                    return response;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                try { await transaction.RollbackAsync(); } catch (Exception rbEx) { _logger.LogError(rbEx, "Rollback failed"); }
+                                _logger.LogError(ex, "AI評価開始処理でエラーが発生しました");
+                                response.StatusCode = HttpStatusCode.InternalServerError;
+                                await response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                                return response;
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -201,8 +244,8 @@ namespace Company.Function
 
         public class EvaluationRequest
         {
-            public string RespondentId { get; set; }
-            public string SubcategoryId { get; set; }
+            public string? RespondentId { get; set; }
+            public string? SubcategoryId { get; set; }
         }
     }
 }
