@@ -180,19 +180,31 @@ namespace Company.Function
             {
                 _logger.LogInformation($"AI評価処理開始: RespondentId={respondentId}, SubcategoryId={subcategoryId}");
 
-                // STEP 1: モック実装（5秒間の待機）
-                await Task.Delay(5000);
-
                 var connectionString = Environment.GetEnvironmentVariable("SqlDbConnection", EnvironmentVariableTarget.Process);
+                if (string.IsNullOrEmpty(connectionString))
+                {
+                    _logger.LogError("SqlDbConnection is null or empty in ProcessAIEvaluationAsync");
+                    return;
+                }
+                _logger.LogInformation($"Connection string is available (length: {connectionString.Length})");
+
+                // STEP 1: モック実装（5秒間の待機）
+                _logger.LogInformation($"Starting 5-second AI evaluation simulation for RespondentId={respondentId}, SubcategoryId={subcategoryId}");
+                await Task.Delay(5000);
+                _logger.LogInformation($"Completed 5-second delay for RespondentId={respondentId}, SubcategoryId={subcategoryId}");
                 
+                _logger.LogInformation($"Attempting database connection for status update");
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
+                    _logger.LogInformation($"Database connection opened successfully");
 
                     // STEP 2で実装予定: 実際のAI評価処理
                     // 現在はモックデータを設定
                     var mockEvaluation = $"[モック評価] 中項目 {subcategoryId} の評価を完了しました。";
                     var mockRecommendation = $"[モック推奨] 中項目 {subcategoryId} に対する推奨事項です。";
+                    
+                    _logger.LogInformation($"Generated mock evaluation data (evaluation: {mockEvaluation.Length} chars, recommendation: {mockRecommendation.Length} chars)");
 
                     var updateCmd = new SqlCommand(@"
                         UPDATE [AIAdvice_CHU$] 
@@ -207,19 +219,28 @@ namespace Company.Function
                     updateCmd.Parameters.AddWithValue("@EvaluationText", mockEvaluation);
                     updateCmd.Parameters.AddWithValue("@RecommendationText", mockRecommendation);
                     
-                    await updateCmd.ExecuteNonQueryAsync();
+                    _logger.LogInformation($"Executing SQL UPDATE command");
+                    int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+                    _logger.LogInformation($"Status updated to completed for RespondentId={respondentId}, SubcategoryId={subcategoryId}, RowsAffected={rowsAffected}");
                     
                     _logger.LogInformation($"AI評価完了: RespondentId={respondentId}, SubcategoryId={subcategoryId}");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"AI評価処理でエラーが発生しました: RespondentId={respondentId}, SubcategoryId={subcategoryId}");
+                _logger.LogError(ex, $"AI評価処理でエラーが発生しました: RespondentId={respondentId}, SubcategoryId={subcategoryId}, Error={ex.Message}, StackTrace={ex.StackTrace}");
                 
                 // エラー時のステータス更新
                 try
                 {
                     var connectionString = Environment.GetEnvironmentVariable("SqlDbConnection", EnvironmentVariableTarget.Process);
+                    if (string.IsNullOrEmpty(connectionString))
+                    {
+                        _logger.LogError("SqlDbConnection is null or empty in ProcessAIEvaluationAsync");
+                        return;
+                    }
+                    
+                    _logger.LogInformation($"Updating error status for RespondentId={respondentId}, SubcategoryId={subcategoryId}");
                     using (var connection = new SqlConnection(connectionString))
                     {
                         await connection.OpenAsync();
@@ -233,11 +254,12 @@ namespace Company.Function
                         errorUpdateCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
                         
                         await errorUpdateCmd.ExecuteNonQueryAsync();
+                        _logger.LogInformation($"Error status updated for RespondentId={respondentId}, SubcategoryId={subcategoryId}");
                     }
                 }
                 catch (Exception updateEx)
                 {
-                    _logger.LogError(updateEx, "エラーステータス更新に失敗しました");
+                    _logger.LogError(updateEx, $"エラーステータス更新に失敗しました: {updateEx.Message}, StackTrace: {updateEx.StackTrace}");
                 }
             }
         }

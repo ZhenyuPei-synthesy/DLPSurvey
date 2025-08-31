@@ -46,6 +46,7 @@ namespace Company.Function
 
                 if (string.IsNullOrEmpty(respondentId))
                 {
+                    _logger.LogError("GetEvaluationStatus: RespondentId is required");
                     response.StatusCode = HttpStatusCode.BadRequest;
                     await response.WriteAsJsonAsync(new { 
                         success = false, 
@@ -54,10 +55,13 @@ namespace Company.Function
                     return response;
                 }
 
+                _logger.LogInformation($"GetEvaluationStatus: Getting statuses for RespondentId={respondentId}");
+
                 var connectionString = Environment.GetEnvironmentVariable("SqlDbConnection", EnvironmentVariableTarget.Process);
                 
                 if (string.IsNullOrEmpty(connectionString))
                 {
+                    _logger.LogError("GetEvaluationStatus: SqlDbConnection is null or empty");
                     response.StatusCode = HttpStatusCode.InternalServerError;
                     await response.WriteAsJsonAsync(new { 
                         success = false, 
@@ -66,11 +70,13 @@ namespace Company.Function
                     return response;
                 }
 
+                _logger.LogInformation($"Connection string is available (length: {connectionString.Length})");
                 var evaluationStatuses = new List<EvaluationStatusResult>();
 
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
+                    _logger.LogInformation($"Database connection opened successfully");
 
                     var selectCmd = new SqlCommand(@"
                         SELECT [中項目番号], [status], [evaluation_text], [recommendation_text], [updated_at]
@@ -83,18 +89,21 @@ namespace Company.Function
                     {
                         while (await reader.ReadAsync())
                         {
-                            evaluationStatuses.Add(new EvaluationStatusResult
+                            var status = new EvaluationStatusResult
                             {
                                 SubcategoryId = reader["中項目番号"]?.ToString(),
                                 Status = reader["status"]?.ToString(),
                                 EvaluationText = reader["evaluation_text"]?.ToString(),
                                 RecommendationText = reader["recommendation_text"]?.ToString(),
                                 UpdatedAt = reader["updated_at"] as DateTime?
-                            });
+                            };
+                            evaluationStatuses.Add(status);
+                            _logger.LogInformation($"Found evaluation status: SubcategoryId={status.SubcategoryId}, Status={status.Status}");
                         }
                     }
                 }
 
+                _logger.LogInformation($"Returning {evaluationStatuses.Count} evaluation statuses for RespondentId={respondentId}");
                 response.StatusCode = HttpStatusCode.OK;
                 await response.WriteAsJsonAsync(new { 
                     success = true,
@@ -116,10 +125,10 @@ namespace Company.Function
 
         public class EvaluationStatusResult
         {
-            public string SubcategoryId { get; set; }
-            public string Status { get; set; }
-            public string EvaluationText { get; set; }
-            public string RecommendationText { get; set; }
+            public string? SubcategoryId { get; set; }
+            public string? Status { get; set; }
+            public string? EvaluationText { get; set; }
+            public string? RecommendationText { get; set; }
             public DateTime? UpdatedAt { get; set; }
         }
     }
