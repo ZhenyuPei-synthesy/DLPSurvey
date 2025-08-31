@@ -6,6 +6,8 @@ using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
+using System.Text;
+using System.Net.Http;
 
 namespace Company.Function
 {
@@ -101,10 +103,45 @@ namespace Company.Function
 
                                 _logger.LogInformation($"AI評価開始: RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
 
-                                // バックグラウンドでAI評価処理を開始（現在はモック実装）
-                                _ = Task.Run(async () => await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId));
-
-                                response.StatusCode = HttpStatusCode.OK;
+                // バックグラウンドでAI評価処理を開始（現在はモック実装）
+                _ = Task.Run(async () => {
+                    try 
+                    {
+                        _logger.LogInformation($"Background task STARTED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                        Console.WriteLine($"[INFO] Background task STARTED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                        await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId);
+                        _logger.LogInformation($"Background task COMPLETED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                        Console.WriteLine($"[INFO] Background task COMPLETED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                    }
+                    catch (Exception bgEx)
+                    {
+                        _logger.LogError(bgEx, $"Background ProcessAIEvaluationAsync failed: RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}, Error={bgEx.Message}");
+                        Console.WriteLine($"[ERROR] Background ProcessAIEvaluationAsync failed: RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}, Error={bgEx.Message}");
+                        Console.WriteLine($"[ERROR] Stack trace: {bgEx.StackTrace}");
+                        
+                        // エラー時にステータスを更新
+                        try
+                        {
+                            await UpdateStatusToError(requestData.RespondentId, requestData.SubcategoryId, bgEx.Message);
+                            _logger.LogInformation($"Status updated to error for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                            Console.WriteLine($"[INFO] Status updated to error for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                        }
+                        catch (Exception updateEx)
+                        {
+                            _logger.LogError(updateEx, $"Failed to update status to error for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                            Console.WriteLine($"[ERROR] Failed to update status to error: {updateEx.Message}");
+                        }
+                    }
+                }).ContinueWith(task =>
+                {
+                    if (task.IsFaulted)
+                    {
+                        var ex = task.Exception?.GetBaseException();
+                        _logger.LogError($"Background task itself faulted for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}: {ex?.Message}");
+                        Console.WriteLine($"[ERROR] Background task faulted: {ex?.Message}");
+                        Console.WriteLine($"[ERROR] Task fault stack trace: {ex?.StackTrace}");
+                    }
+                }, TaskContinuationOptions.OnlyOnFaulted);                                response.StatusCode = HttpStatusCode.OK;
                                 await response.WriteAsJsonAsync(new { 
                                     success = true,
                                     status = "evaluating",
@@ -129,7 +166,22 @@ namespace Company.Function
 
                                     _logger.LogInformation($"AI評価開始(フォールバック): RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
 
-                                    _ = Task.Run(async () => await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId));
+                                    _ = Task.Run(async () => {
+                                        try 
+                                        {
+                                            _logger.LogInformation($"Background FALLBACK task STARTED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                                            Console.WriteLine($"[INFO] Background FALLBACK task STARTED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                                            await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId);
+                                            _logger.LogInformation($"Background FALLBACK task COMPLETED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                                            Console.WriteLine($"[INFO] Background FALLBACK task COMPLETED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
+                                        }
+                                        catch (Exception bgEx)
+                                        {
+                                            _logger.LogError(bgEx, $"Background ProcessAIEvaluationAsync fallback failed: RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}, Error={bgEx.Message}");
+                                            Console.WriteLine($"[ERROR] Background ProcessAIEvaluationAsync fallback failed: RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}, Error={bgEx.Message}");
+                                            Console.WriteLine($"[ERROR] Fallback stack trace: {bgEx.StackTrace}");
+                                        }
+                                    });
 
                                     response.StatusCode = HttpStatusCode.OK;
                                     await response.WriteAsJsonAsync(new { success = true, status = "evaluating", message = "AI evaluation started (fallback)" });
@@ -179,19 +231,118 @@ namespace Company.Function
             try
             {
                 _logger.LogInformation($"AI評価処理開始: RespondentId={respondentId}, SubcategoryId={subcategoryId}");
+                Console.WriteLine($"[INFO] AI評価処理開始: RespondentId={respondentId}, SubcategoryId={subcategoryId}");
 
                 var connectionString = Environment.GetEnvironmentVariable("SqlDbConnection", EnvironmentVariableTarget.Process);
                 if (string.IsNullOrEmpty(connectionString))
                 {
                     _logger.LogError("SqlDbConnection is null or empty in ProcessAIEvaluationAsync");
+                    Console.WriteLine("[ERROR] SqlDbConnection is null or empty in ProcessAIEvaluationAsync");
                     return;
                 }
                 _logger.LogInformation($"Connection string is available (length: {connectionString.Length})");
+                Console.WriteLine($"[INFO] Connection string is available (length: {connectionString.Length})");
 
-                // STEP 1: モック実装（5秒間の待機）
-                _logger.LogInformation($"Starting 5-second AI evaluation simulation for RespondentId={respondentId}, SubcategoryId={subcategoryId}");
-                await Task.Delay(5000);
-                _logger.LogInformation($"Completed 5-second delay for RespondentId={respondentId}, SubcategoryId={subcategoryId}");
+                // Azure OpenAI APIキーとエンドポイントの取得
+                var azureOpenAiApiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY", EnvironmentVariableTarget.Process);
+                var azureOpenAiEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT", EnvironmentVariableTarget.Process);
+                var deploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT_NAME", EnvironmentVariableTarget.Process);
+                
+                Console.WriteLine($"[DEBUG] Azure OpenAI Config Check:");
+                Console.WriteLine($"[DEBUG] - ApiKey: {(string.IsNullOrEmpty(azureOpenAiApiKey) ? "MISSING" : "Present")}");
+                Console.WriteLine($"[DEBUG] - Endpoint: {(string.IsNullOrEmpty(azureOpenAiEndpoint) ? "MISSING" : azureOpenAiEndpoint)}");
+                Console.WriteLine($"[DEBUG] - Deployment: {(string.IsNullOrEmpty(deploymentName) ? "MISSING" : deploymentName)}");
+                
+                if (string.IsNullOrEmpty(azureOpenAiApiKey) || string.IsNullOrEmpty(azureOpenAiEndpoint) || string.IsNullOrEmpty(deploymentName))
+                {
+                    string errorMsg = $"Azure OpenAI configuration missing: ApiKey={!string.IsNullOrEmpty(azureOpenAiApiKey)}, Endpoint={!string.IsNullOrEmpty(azureOpenAiEndpoint)}, Deployment={!string.IsNullOrEmpty(deploymentName)}";
+                    _logger.LogError(errorMsg);
+                    Console.WriteLine($"[ERROR] {errorMsg}");
+                    await UpdateStatusToError(respondentId, subcategoryId, "Azure OpenAI configuration missing");
+                    return;
+                }
+
+                _logger.LogInformation($"Azure OpenAI config available - Endpoint: {azureOpenAiEndpoint}, Deployment: {deploymentName}");
+                Console.WriteLine($"[INFO] Azure OpenAI config available - Endpoint: {azureOpenAiEndpoint}, Deployment: {deploymentName}");
+
+                // Azure OpenAI APIへのHTTPリクエスト
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(30); // 30秒タイムアウト
+                httpClient.DefaultRequestHeaders.Add("api-key", azureOpenAiApiKey);
+                
+                _logger.LogInformation($"Azure OpenAI API Key (first 10 chars): {azureOpenAiApiKey.Substring(0, Math.Min(10, azureOpenAiApiKey.Length))}");
+                Console.WriteLine($"[INFO] Azure OpenAI API Key (first 10 chars): {azureOpenAiApiKey.Substring(0, Math.Min(10, azureOpenAiApiKey.Length))}");
+
+                var requestBody = new
+                {
+                    messages = new[]
+                    {
+                        new { role = "system", content = "あなたは親切なアシスタントです。" },
+                        new { role = "user", content = "今日の天気について教えてください" }
+                    },
+                    max_tokens = 150,
+                    temperature = 0.7
+                };
+
+                var json = JsonConvert.SerializeObject(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                // Azure OpenAI のエンドポイント形式
+                var apiUrl = $"{azureOpenAiEndpoint.TrimEnd('/')}/openai/deployments/{deploymentName}/chat/completions?api-version=2024-02-15-preview";
+                
+                _logger.LogInformation($"Calling Azure OpenAI API: {apiUrl}");
+                _logger.LogInformation($"Request body: {json}");
+                Console.WriteLine($"[INFO] Calling Azure OpenAI API: {apiUrl}");
+                Console.WriteLine($"[INFO] Request body: {json}");
+                
+                HttpResponseMessage response;
+                try
+                {
+                    Console.WriteLine("[DEBUG] About to make HTTP POST request...");
+                    response = await httpClient.PostAsync(apiUrl, content);
+                    Console.WriteLine($"[DEBUG] HTTP POST completed. Status: {response.StatusCode}");
+                }
+                catch (HttpRequestException httpEx)
+                {
+                    string errorMsg = $"HTTP request exception when calling Azure OpenAI: {httpEx.Message}";
+                    _logger.LogError(httpEx, errorMsg);
+                    Console.WriteLine($"[ERROR] {errorMsg}");
+                    Console.WriteLine($"[ERROR] HttpRequestException stack trace: {httpEx.StackTrace}");
+                    await UpdateStatusToError(respondentId, subcategoryId, $"HTTP request failed: {httpEx.Message}");
+                    return;
+                }
+                catch (TaskCanceledException tcEx)
+                {
+                    string errorMsg = $"Azure OpenAI API call timed out: {tcEx.Message}";
+                    _logger.LogError(tcEx, errorMsg);
+                    Console.WriteLine($"[ERROR] {errorMsg}");
+                    Console.WriteLine($"[ERROR] TaskCanceledException stack trace: {tcEx.StackTrace}");
+                    await UpdateStatusToError(respondentId, subcategoryId, "Azure OpenAI API timeout");
+                    return;
+                }
+
+                string aiResponse;
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError($"Azure OpenAI API call failed: {response.StatusCode}, Error: {errorContent}");
+                    _logger.LogError($"Request URL: {apiUrl}");
+                    _logger.LogError($"Request Headers: {string.Join(", ", httpClient.DefaultRequestHeaders.Select(h => $"{h.Key}={string.Join(",", h.Value)}"))}");
+                    _logger.LogError($"Request Body: {json}");
+                    
+                    // エラーの場合は処理を停止してエラーステータスを設定
+                    await UpdateStatusToError(respondentId, subcategoryId, $"Azure OpenAI API error: {response.StatusCode} - {errorContent}");
+                    return;
+                }
+                else
+                {
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogInformation($"Raw Azure OpenAI response: {responseContent}");
+                    dynamic? apiResponse = JsonConvert.DeserializeObject(responseContent);
+                    
+                    aiResponse = apiResponse?.choices?[0]?.message?.content?.ToString() ?? "Azure OpenAI API response was empty";
+                    _logger.LogInformation($"Azure OpenAI response received (length: {aiResponse.Length})");
+                }
                 
                 _logger.LogInformation($"Attempting database connection for status update");
                 using (var connection = new SqlConnection(connectionString))
@@ -199,12 +350,11 @@ namespace Company.Function
                     await connection.OpenAsync();
                     _logger.LogInformation($"Database connection opened successfully");
 
-                    // STEP 2で実装予定: 実際のAI評価処理
-                    // 現在はモックデータを設定
-                    var mockEvaluation = $"[モック評価] 中項目 {subcategoryId} の評価を完了しました。";
-                    var mockRecommendation = $"[モック推奨] 中項目 {subcategoryId} に対する推奨事項です。";
+                    // OpenAI APIの結果をデータベースに保存
+                    var evaluationText = $"[OpenAI評価] 中項目 {subcategoryId} の評価を完了しました。";
+                    var recommendationText = aiResponse; // OpenAI APIからの回答を推奨事項として使用
                     
-                    _logger.LogInformation($"Generated mock evaluation data (evaluation: {mockEvaluation.Length} chars, recommendation: {mockRecommendation.Length} chars)");
+                    _logger.LogInformation($"Generated OpenAI evaluation data (evaluation: {evaluationText.Length} chars, recommendation: {recommendationText.Length} chars)");
 
                     var updateCmd = new SqlCommand(@"
                         UPDATE [AIAdvice_CHU$] 
@@ -216,8 +366,8 @@ namespace Company.Function
                     
                     updateCmd.Parameters.AddWithValue("@RespondentId", respondentId);
                     updateCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
-                    updateCmd.Parameters.AddWithValue("@EvaluationText", mockEvaluation);
-                    updateCmd.Parameters.AddWithValue("@RecommendationText", mockRecommendation);
+                    updateCmd.Parameters.AddWithValue("@EvaluationText", evaluationText);
+                    updateCmd.Parameters.AddWithValue("@RecommendationText", recommendationText);
                     
                     _logger.LogInformation($"Executing SQL UPDATE command");
                     int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
@@ -228,39 +378,59 @@ namespace Company.Function
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"AI評価処理でエラーが発生しました: RespondentId={respondentId}, SubcategoryId={subcategoryId}, Error={ex.Message}, StackTrace={ex.StackTrace}");
+                string errorMsg = $"AI評価処理でエラーが発生しました: RespondentId={respondentId}, SubcategoryId={subcategoryId}, Error={ex.Message}";
+                _logger.LogError(ex, errorMsg);
+                Console.WriteLine($"[ERROR] {errorMsg}");
+                Console.WriteLine($"[ERROR] Full exception details:");
+                Console.WriteLine($"[ERROR] Type: {ex.GetType().Name}");
+                Console.WriteLine($"[ERROR] Message: {ex.Message}");
+                Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[ERROR] Inner exception: {ex.InnerException.Message}");
+                    Console.WriteLine($"[ERROR] Inner stack trace: {ex.InnerException.StackTrace}");
+                }
                 
                 // エラー時のステータス更新
-                try
+                await UpdateStatusToError(respondentId, subcategoryId, ex.Message);
+            }
+        }
+
+        private async Task UpdateStatusToError(string respondentId, string subcategoryId, string errorMessage)
+        {
+            try
+            {
+                var connectionString = Environment.GetEnvironmentVariable("SqlDbConnection", EnvironmentVariableTarget.Process);
+                if (string.IsNullOrEmpty(connectionString))
                 {
-                    var connectionString = Environment.GetEnvironmentVariable("SqlDbConnection", EnvironmentVariableTarget.Process);
-                    if (string.IsNullOrEmpty(connectionString))
-                    {
-                        _logger.LogError("SqlDbConnection is null or empty in ProcessAIEvaluationAsync");
-                        return;
-                    }
+                    _logger.LogError("SqlDbConnection is null or empty in UpdateStatusToError");
+                    Console.WriteLine("[ERROR] SqlDbConnection is null or empty in UpdateStatusToError");
+                    return;
+                }
+                
+                _logger.LogInformation($"Updating error status for RespondentId={respondentId}, SubcategoryId={subcategoryId}, Error={errorMessage}");
+                Console.WriteLine($"[INFO] Updating error status for RespondentId={respondentId}, SubcategoryId={subcategoryId}, Error={errorMessage}");
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+                    var errorUpdateCmd = new SqlCommand(@"
+                        UPDATE [AIAdvice_CHU$] 
+                        SET [status] = 'error',
+                            [recommendation_text] = @ErrorMessage,
+                            [updated_at] = GETDATE()
+                        WHERE [回答者番号] = @RespondentId AND [中項目番号] = @SubcategoryId", connection);
                     
-                    _logger.LogInformation($"Updating error status for RespondentId={respondentId}, SubcategoryId={subcategoryId}");
-                    using (var connection = new SqlConnection(connectionString))
-                    {
-                        await connection.OpenAsync();
-                        var errorUpdateCmd = new SqlCommand(@"
-                            UPDATE [AIAdvice_CHU$] 
-                            SET [status] = 'error',
-                                [updated_at] = GETDATE()
-                            WHERE [回答者番号] = @RespondentId AND [中項目番号] = @SubcategoryId", connection);
-                        
-                        errorUpdateCmd.Parameters.AddWithValue("@RespondentId", respondentId);
-                        errorUpdateCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
-                        
-                        await errorUpdateCmd.ExecuteNonQueryAsync();
-                        _logger.LogInformation($"Error status updated for RespondentId={respondentId}, SubcategoryId={subcategoryId}");
-                    }
+                    errorUpdateCmd.Parameters.AddWithValue("@RespondentId", respondentId);
+                    errorUpdateCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
+                    errorUpdateCmd.Parameters.AddWithValue("@ErrorMessage", $"エラー: {errorMessage}");
+                    
+                    await errorUpdateCmd.ExecuteNonQueryAsync();
+                    _logger.LogInformation($"Error status updated for RespondentId={respondentId}, SubcategoryId={subcategoryId}");
                 }
-                catch (Exception updateEx)
-                {
-                    _logger.LogError(updateEx, $"エラーステータス更新に失敗しました: {updateEx.Message}, StackTrace: {updateEx.StackTrace}");
-                }
+            }
+            catch (Exception updateEx)
+            {
+                _logger.LogError(updateEx, $"エラーステータス更新に失敗しました: {updateEx.Message}, StackTrace: {updateEx.StackTrace}");
             }
         }
 
