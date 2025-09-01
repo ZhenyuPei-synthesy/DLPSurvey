@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -22,6 +22,58 @@ ChartJS.register(
 );
 
 const Report = ({ answers, surveyData }) => {
+  const [aiEvaluations, setAiEvaluations] = useState({});
+  const [loadingEvaluations, setLoadingEvaluations] = useState(true);
+
+  // AI評価データを読み込む
+  useEffect(() => {
+    const loadAiEvaluations = async () => {
+      try {
+        const storedRespondentId = sessionStorage.getItem('respondentId');
+        if (!storedRespondentId) {
+          setLoadingEvaluations(false);
+          return;
+        }
+
+        const apiUrl = import.meta.env.MODE === 'development' 
+          ? '/api/GetEvaluationStatus'
+          : (import.meta.env.VITE_GET_EVALUATION_STATUS_API_URL || '/api/GetEvaluationStatus');
+
+        const response = await fetch(`${apiUrl}?respondentId=${storedRespondentId}`);
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.evaluations && result.evaluations.length > 0) {
+            const evaluationMap = {};
+            
+            // 中項目番号でマッピング
+            result.evaluations.forEach(evaluation => {
+              const subcategoryId = evaluation.subcategoryId || evaluation.SubcategoryId || '';
+              const status = (evaluation.status || evaluation.Status || '').toLowerCase();
+              
+              if (status === 'completed') {
+                evaluationMap[subcategoryId] = {
+                  evaluationText: evaluation.evaluationText || evaluation.EvaluationText || '',
+                  recommendationText: evaluation.recommendationText || evaluation.RecommendationText || ''
+                };
+              }
+            });
+            
+            setAiEvaluations(evaluationMap);
+            console.log('AI評価データを読み込み完了:', evaluationMap);
+          }
+        }
+      } catch (err) {
+        console.error("AI評価データの読み込み中にエラー:", err);
+      } finally {
+        setLoadingEvaluations(false);
+      }
+    };
+
+    if (surveyData.length > 0) {
+      loadAiEvaluations();
+    }
+  }, [surveyData]);
   // PDFダウンロード機能
   const downloadPDF = async () => {
     try {
@@ -365,6 +417,10 @@ const Report = ({ answers, surveyData }) => {
                   s => s.category === category.category && s.subcategory === subcategory.name
                 );
                 
+                // AI評価結果を取得（中項目番号でマッチング）
+                const subcategoryId = subcategory.items[0]?.chuItemNumber;
+                const aiEvaluation = subcategoryId ? aiEvaluations[subcategoryId] : null;
+                
                 return (
                   <div key={subcategory.name} className={`mb-4 p-4 rounded-lg ${
                     parseFloat(subcatData?.averageScore) >= 4 ? 'bg-green-50' : 
@@ -382,9 +438,25 @@ const Report = ({ answers, surveyData }) => {
                       </span>
                     </div>
                     
+                    {/* AI評価結果を優先表示 */}
+                    {aiEvaluation && aiEvaluation.recommendationText ? (
+                      <div className="mb-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-md">
+                        <h5 className="font-semibold text-blue-800 text-sm mb-1">AI評価</h5>
+                        {aiEvaluation.evaluationText && (
+                          <p className="text-blue-700 text-sm mb-2">
+                            <strong>評価:</strong> {aiEvaluation.evaluationText}
+                          </p>
+                        )}
+                        <p className="text-blue-700 text-sm">
+                          <strong>推奨事項:</strong> {aiEvaluation.recommendationText}
+                        </p>
+                      </div>
+                    ) : null}
+                    
                     {subcatData?.hasAnswers ? (
                       subcatData.comments.length > 0 ? (
                         <div className="space-y-2">
+                          <h5 className="font-medium text-slate-600 text-sm">個別コメント:</h5>
                           {subcatData.comments.map((comment, index) => (
                             <div key={index} className="text-sm">
                               <p className="font-medium text-slate-600">{comment.question}</p>
@@ -393,14 +465,17 @@ const Report = ({ answers, surveyData }) => {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-slate-600 text-sm">
-                          {parseFloat(subcatData.averageScore) >= 4 
-                            ? '非常によく管理されています。現在の高い水準を維持してください。'
-                            : parseFloat(subcatData.averageScore) >= 2
-                            ? '改善の余地があります。具体的な対策を検討してください。'
-                            : '早急な対応が必要です。リスクを最小限に抑えるため、速やかに改善策を実施してください。'
-                          }
-                        </p>
+                        // AI評価がない場合のみデフォルトコメントを表示
+                        !aiEvaluation && (
+                          <p className="text-slate-600 text-sm">
+                            {parseFloat(subcatData.averageScore) >= 4 
+                              ? '非常によく管理されています。現在の高い水準を維持してください。'
+                              : parseFloat(subcatData.averageScore) >= 2
+                              ? '改善の余地があります。具体的な対策を検討してください。'
+                              : '早急な対応が必要です。リスクを最小限に抑えるため、速やかに改善策を実施してください。'
+                            }
+                          </p>
+                        )
                       )
                     ) : (
                       <p className="text-slate-500 text-sm">この項目は評価されていません。</p>

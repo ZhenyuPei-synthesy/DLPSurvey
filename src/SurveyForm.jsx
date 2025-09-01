@@ -756,22 +756,6 @@ import { parseExcelDataToJson } from './parser.js';
                           </div>
                         </div>
                         
-                        {/* AI評価結果の表示 */}
-                        {aiEvaluationStatus[subcategory.name]?.status === 'completed' && (
-                          <div className="mb-4 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
-                            <h4 className="font-semibold text-blue-800 mb-2">AI評価結果</h4>
-                            {aiEvaluationStatus[subcategory.name].evaluationText && (
-                              <p className="text-blue-700 text-sm mb-2">
-                                <strong>評価:</strong> {aiEvaluationStatus[subcategory.name].evaluationText}
-                              </p>
-                            )}
-                            {aiEvaluationStatus[subcategory.name].recommendationText && (
-                              <p className="text-blue-700 text-sm">
-                                <strong>推奨事項:</strong> {aiEvaluationStatus[subcategory.name].recommendationText}
-                              </p>
-                            )}
-                          </div>
-                        )}
                         <div className="space-y-8">
                           {subcategory.items.map((item) => {
                             const isDisabled = isSubcategoryLocked(subcategory);
