@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { parseExcelDataToJson } from './parser.js';
 
 const Welcome = ({ onNext }) => {
   const [form, setForm] = useState({
@@ -7,7 +8,9 @@ const Welcome = ({ onNext }) => {
     jobTitle: '',
     name: '',
     email: '',
-    phone: ''
+    phone: '',
+    expertConsultation: '', // 専門家による改善提案の希望可否
+    statisticsCooperation: '' // 統計利用協力の可否
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -20,6 +23,9 @@ const Welcome = ({ onNext }) => {
   // 免責事項とプライバシーポリシー関連
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  // 質問データと総問数
+  const [surveyData, setSurveyData] = useState([]);
+  const [totalQuestions, setTotalQuestions] = useState(0);
 
   // In development prefer relative path so Vite proxy forwards to local Functions.
   // In production use the explicit environment variable if provided.
@@ -27,6 +33,46 @@ const Welcome = ({ onNext }) => {
   const apiUrl = isDev
     ? '/api/CreateRespondent'
     : (import.meta.env.VITE_CREATE_RESPONDENT_API_URL || '/api/CreateRespondent');
+
+  // 質問データを取得して総問数を計算
+  useEffect(() => {
+    const fetchQuestionCount = async () => {
+      try {
+        const surveyApiUrl = import.meta.env.VITE_APP_GET_SURVEY_API_URL;
+        if (!surveyApiUrl) return;
+
+        const response = await fetch(surveyApiUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'DLP-Survey-App/1.0'
+          },
+          mode: 'cors',
+          cache: 'no-cache'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const structuredData = parseExcelDataToJson(data);
+          setSurveyData(structuredData);
+          
+          // 総問数を計算
+          let questionCount = 0;
+          structuredData.forEach(category => {
+            category.subcategories.forEach(subcategory => {
+              questionCount += subcategory.items.length;
+            });
+          });
+          setTotalQuestions(questionCount);
+        }
+      } catch (err) {
+        console.error("質問データの取得に失敗:", err);
+      }
+    };
+
+    fetchQuestionCount();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -236,10 +282,14 @@ const Welcome = ({ onNext }) => {
               <strong>IPA「組織における内部不正防止ガイドライン」</strong>
               <div className="text-sm text-slate-500">情報管理ルールの理解度や、不正を抑制する組織風土を把握します。</div>
             </li>
+            <li>
+              <strong>OWASP「OWASPの生成AIセキュリティプロジェクト」</strong>
+              <div className="text-sm text-slate-500">生成AIに特有の脅威やリスクを評価し、対策を講じるためのフレームワークを提供します。</div>
+            </li>
           </ul>
 
           <p className="text-slate-600 mb-4">
-            これらの公的文書を拠り所とすることで、AI時代の脅威に対応する網羅的かつ実践的な現状評価が可能となります。
+            これらの公的指針を横断的に参照し、推奨される対策項目を設問形式に落とし込むことで、AI時代の脅威に対応する網羅的なアセスメントを作成しています。
           </p>
 
           <h3 className="text-lg font-medium mb-3">ご協力いただいた企業様への特典</h3>
@@ -251,16 +301,60 @@ const Welcome = ({ onNext }) => {
             <li>
               <strong>専門家による詳細な改善提案</strong>
               <div className="text-sm text-slate-500">ご希望の企業様には、専門家が結果を分析し、改善策とロードマップをご提案します。</div>
+              <div className="mt-2 ml-4 space-y-1">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="expertConsultation"
+                    value="希望する"
+                    checked={form.expertConsultation === '希望する'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <span className="ml-2 text-sm text-slate-600">希望する</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="expertConsultation"
+                    value="希望しない"
+                    checked={form.expertConsultation === '希望しない'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <span className="ml-2 text-sm text-slate-600">希望しない</span>
+                </label>
+              </div>
             </li>
             <li>
               <strong>業界ベンチマークレポートのご提供</strong>
-              <div className="text-sm text-slate-500">統計利用にご協力いただける企業様には、3ヶ月後に業界ベンチマークレポートを無償でご提供します。</div>
+              <div className="text-sm text-slate-500">ベンチマークレポートの統計利用にご協力いただける企業様には、3ヶ月後に業界ベンチマークレポートを無償でご提供します。</div>
+              <div className="mt-2 ml-4 space-y-1">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="statisticsCooperation"
+                    value="協力する"
+                    checked={form.statisticsCooperation === '協力する'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <span className="ml-2 text-sm text-slate-600">協力する</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="statisticsCooperation"
+                    value="協力しない"
+                    checked={form.statisticsCooperation === '協力しない'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <span className="ml-2 text-sm text-slate-600">協力しない</span>
+                </label>
+              </div>
             </li>
           </ul>
-
-          <p className="text-slate-600 mt-4">
-            AI技術の恩恵を安全に享受し、貴社の持続的成長を守るため、本アセスメントの趣旨にご理解とご協力をいただけますようお願い申し上げます。
-          </p>
         </div>
 
   <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -391,6 +485,13 @@ const Welcome = ({ onNext }) => {
                 </form>
               </div>
             )}
+            
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-slate-600 text-sm">
+                設問は全部で{totalQuestions > 0 ? totalQuestions : 'xx'}問、想定所要時間は20～30分です。<br />
+                もし途中で回答を中断される場合は、画面の「一時保存」ボタンを押してください。後ほど同じ状態から再開することが可能です。
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -469,7 +570,7 @@ const Welcome = ({ onNext }) => {
                       <li>アセスメント結果の報告および送付のため</li>
                       <li>本人確認のため</li>
                       <li>本アセスメントに関するお問い合わせへの対応のため</li>
-                      <li>弊社サービスに関するご案内や情報提供のため</li>
+                      <li>当社サービスに関するご案内や情報提供のため</li>
                     </ul>
                     <p className="mb-3">
                       ご入力いただいた個人情報は、AIによる評価・分析プロセスには一切使用されません。AI評価は、アセスメントの設問に対する回答内容のみを用いて行われます。また、取得した個人情報は、上記利用目的の範囲を超えて利用することはありません。
