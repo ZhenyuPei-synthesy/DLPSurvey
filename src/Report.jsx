@@ -406,7 +406,7 @@ const Report = ({ answers, surveyData }) => {
 
         {/* 中項目別総評コメント */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <h2 className="text-2xl font-bold mb-6">中項目別 総評コメント</h2>
+          <h2 className="text-2xl font-bold mb-6">中項目別 総評コメント（AIによる自動評価・推奨事項提案）</h2>
           
           {surveyData.map((category) => (
             <div key={category.category} className="mb-8">
@@ -547,8 +547,20 @@ const Report = ({ answers, surveyData }) => {
             </table>
           </div>
         </div>
+        {/* 免責事項 */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg shadow-sm p-6 mb-8">
+          <h2 className="text-xl font-bold mb-4 text-amber-800 flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            免責事項
+          </h2>
+          <p className="text-amber-800 text-sm leading-relaxed">
+            本アセスメントで表示されるAIによる評価結果は、あくまで提供された情報に基づいた自動的な分析によるものであり、その正確性や完全性を保証するものではありません。評価結果は参考情報としてご活用いただき、最終的な判断や具体的な対策の実施に際しては、専門家にご相談されることを推奨します。
+          </p>
+        </div>
 
-        {/* 戻るボタン */}
+        {/* ダウンロードボタン */}
         <div className="text-center mt-8">
           <button
             onClick={downloadPDF}

@@ -17,6 +17,9 @@ const Welcome = ({ onNext }) => {
   const [resumeInputs, setResumeInputs] = useState({ email: '', answerNumber: '' });
   const [resumeError, setResumeError] = useState(null);
   const [isResuming, setIsResuming] = useState(false);
+  // 免責事項とプライバシーポリシー関連
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // In development prefer relative path so Vite proxy forwards to local Functions.
   // In production use the explicit environment variable if provided.
@@ -47,6 +50,7 @@ const Welcome = ({ onNext }) => {
       const emailRe = /^\S+@\S+\.\S+$/;
       if (!emailRe.test(form.email)) errors.email = '正しいメールアドレスを入力してください。';
     }
+    if (!agreedToTerms) errors.terms = '免責事項とプライバシーポリシーへの同意が必要です。';
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -222,7 +226,11 @@ const Welcome = ({ onNext }) => {
           <ul className="list-disc list-inside text-slate-600 mb-4 space-y-2">
             <li>
               <strong>経済産業省「営業秘密管理指針」</strong>
-              <div className="text-sm text-slate-500">営業秘密管理の基本ルールが実践されているかを確認します。</div>
+              <div className="text-sm text-slate-500">不正競争防止法による保護を受けるために必要となる最低限の水準の対策を示すものです。</div>
+            </li>
+            <li>
+              <strong>経済産業省「技術情報の保護ハンドブック」</strong>
+              <div className="text-sm text-slate-500">秘密情報の漏えいを未然に防ぎたいと考える企業の方々が対策を行う際に参考としていただけるよう、様々な対策例を紹介するハンドブックです。</div>
             </li>
             <li>
               <strong>IPA「組織における内部不正防止ガイドライン」</strong>
@@ -294,10 +302,48 @@ const Welcome = ({ onNext }) => {
               </div>
             </div>
 
+            {/* 免責事項・プライバシーポリシーの同意 */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <label className="flex items-start space-x-3">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => {
+                    setAgreedToTerms(e.target.checked);
+                    if (e.target.checked) {
+                      setFieldErrors(prev => ({ ...prev, terms: undefined }));
+                    }
+                  }}
+                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="text-sm text-slate-600">
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="text-blue-600 underline hover:text-blue-800"
+                  >
+                    免責事項とプライバシーポリシー
+                  </button>
+                  に同意します <span className="text-red-600">*</span>
+                </span>
+              </label>
+              {fieldErrors.terms && (
+                <p className="mt-1 text-sm text-red-600">{fieldErrors.terms}</p>
+              )}
+            </div>
+
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
             <div className="mt-4 text-right">
-              <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-blue-600 text-white rounded">
+              <button 
+                type="submit" 
+                disabled={isSubmitting || !agreedToTerms} 
+                className={`px-6 py-2 rounded ${
+                  isSubmitting || !agreedToTerms 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700'
+                } text-white`}
+              >
                 {isSubmitting ? '送信中...' : '次へ'}
               </button>
             </div>
@@ -348,6 +394,136 @@ const Welcome = ({ onNext }) => {
           </div>
         </div>
       </div>
+
+      {/* 免責事項・プライバシーポリシー モーダル */}
+      {showTermsModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* 背景オーバーレイ */}
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" 
+              aria-hidden="true"
+              onClick={() => setShowTermsModal(false)}
+            ></div>
+
+            {/* センタリング用のダミー要素 */}
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            {/* モーダルパネル */}
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                    免責事項とプライバシーポリシー
+                  </h3>
+                  <button
+                    type="button"
+                    className="text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowTermsModal(false)}
+                  >
+                    <span className="sr-only">閉じる</span>
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="max-h-96 overflow-y-auto text-sm text-gray-700 space-y-4">
+                  <p>
+                    この度は、「AI時代の内部情報漏洩対策アセスメント」をご利用いただき、誠にありがとうございます。本ツールのご利用にあたり、以下の内容についてご確認・ご同意の上、お進みください。
+                  </p>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">第1条：免責事項（ディスクレイマー）</h4>
+                    
+                    <h5 className="font-medium text-gray-800 mb-1">AI評価の正確性について:</h5>
+                    <p className="mb-3">
+                      本ツールが提供するAIによる評価スコアおよびコメントは、入力された情報に基づき自動生成されたものです。評価の精度向上には努めておりますが、その正確性、完全性、有用性を保証するものではありません。
+                    </p>
+
+                    <h5 className="font-medium text-gray-800 mb-1">参考情報としての位置づけ:</h5>
+                    <p className="mb-3">
+                      AIによる評価結果は、貴社の情報漏洩対策の現状を把握するための一助となる参考情報です。本評価のみに基づいた最終的な意思決定や対策の実施については、お客様ご自身の責任で行っていただくとともに、必要に応じて専門家へご相談ください。
+                    </p>
+
+                    <h5 className="font-medium text-gray-800 mb-1">損害の責任:</h5>
+                    <p className="mb-3">
+                      本ツールの利用によって生じたいかなる損害についても、当方は一切の責任を負いかねますので、あらかじめご了承ください。
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">第2条：プライバシーポリシー</h4>
+                    <p className="mb-3">
+                      当方は、お客様の個人情報の重要性を認識し、その保護の徹底を図るため、以下の通りプライバシーポリシーを定めます。
+                    </p>
+
+                    <h5 className="font-medium text-gray-800 mb-1">個人情報の定義:</h5>
+                    <p className="mb-3">
+                      本ポリシーにおいて「個人情報」とは、氏名、所属組織名、連絡先（メールアドレス、電話番号）など、特定の個人を識別できる情報を指します。
+                    </p>
+
+                    <h5 className="font-medium text-gray-800 mb-1">個人情報の取得と利用目的:</h5>
+                    <p className="mb-2">本アセスメントでは、以下の目的でお客様の個人情報をご入力いただきます。</p>
+                    <ul className="list-disc list-inside mb-3 ml-4 space-y-1">
+                      <li>アセスメント結果の報告および送付のため</li>
+                      <li>本人確認のため</li>
+                      <li>本アセスメントに関するお問い合わせへの対応のため</li>
+                      <li>弊社サービスに関するご案内や情報提供のため</li>
+                    </ul>
+                    <p className="mb-3">
+                      ご入力いただいた個人情報は、AIによる評価・分析プロセスには一切使用されません。AI評価は、アセスメントの設問に対する回答内容のみを用いて行われます。また、取得した個人情報は、上記利用目的の範囲を超えて利用することはありません。
+                    </p>
+
+                    <h5 className="font-medium text-gray-800 mb-1">個人情報の第三者への提供:</h5>
+                    <p className="mb-3">
+                      当方は、法令に基づく場合や、人の生命、身体または財産の保護のために必要がある場合を除き、お客様の同意を得ずに個人情報を第三者に開示または提供することはありません。
+                    </p>
+
+                    <h5 className="font-medium text-gray-800 mb-1">安全管理措置:</h5>
+                    <p className="mb-3">
+                      当方は、取り扱う個人情報の漏洩、滅失または毀損の防止、その他の個人情報の安全管理のために、必要かつ適切な措置を講じます。
+                    </p>
+
+                    <h5 className="font-medium text-gray-800 mb-1">プライバシーポリシーの変更:</h5>
+                    <p className="mb-3">
+                      当方は、法令の改正やサービス内容の変更等に応じて、本プライバシーポリシーを改定することがあります。重要な変更がある場合には、本ツール上でお知らせいたします。
+                    </p>
+
+                    <h5 className="font-medium text-gray-800 mb-1">お問い合わせ窓口:</h5>
+                    <p className="mb-3">
+                      個人情報の取り扱いに関するご質問やご相談については、下記までお問い合わせください。
+                    </p>
+                    <p className="mb-1">お問い合わせ先窓口：Synthesy株式会社 情報漏洩対策サービスチーム</p>
+                    <p>メールアドレス：〇〇〇@synthesy.co.jp</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => {
+                    setAgreedToTerms(true);
+                    setShowTermsModal(false);
+                    setFieldErrors(prev => ({ ...prev, terms: undefined }));
+                  }}
+                >
+                  同意する
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => setShowTermsModal(false)}
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
