@@ -655,9 +655,46 @@ import { parseExcelDataToJson } from './parser.js';
     return <div className="flex justify-center items-center h-full bg-slate-50 text-red-600">エラー: {error}</div>;
   }
 
+  // 回答進捗を計算
+  const calculateProgress = () => {
+    let totalQuestions = 0;
+    let answeredQuestions = 0;
+
+    surveyData.forEach(category => {
+      category.subcategories.forEach(subcategory => {
+        subcategory.items.forEach(item => {
+          totalQuestions++;
+          const answer = answers[item.id];
+          if (answer && answer.score !== undefined) {
+            answeredQuestions++;
+          }
+        });
+      });
+    });
+
+    return { answeredQuestions, totalQuestions };
+  };
+
+  const { answeredQuestions, totalQuestions } = calculateProgress();
+
   return (
-    <div className="bg-slate-50 h-full p-4 sm:p-8 font-sans">
-      <div className="max-w-4xl mx-auto">
+    <div className="bg-slate-50 h-full font-sans">
+      {/* 固定進捗表示ヘッダー */}
+      <div className="fixed top-48 left-0 right-0 z-20 bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-3">
+          <div className="flex justify-center">
+            <div className="bg-blue-50 px-4 py-2 rounded-full border border-blue-200">
+              <span className="text-blue-800 font-medium text-sm">
+                回答進捗：{answeredQuestions}問/{totalQuestions}問
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* メインコンテンツ - 固定ヘッダー分のパディングを追加 */}
+      <div className="p-4 sm:p-8" style={{ paddingTop: '5rem' }}>
+        <div className="max-w-4xl mx-auto">
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             {surveyData.map((category) => {
@@ -884,6 +921,7 @@ import { parseExcelDataToJson } from './parser.js';
             )}
           </div>
         </form>
+      </div>
       </div>
     </div>
   );
