@@ -167,6 +167,67 @@ import { parseExcelDataToJson } from './parser.js';
     }
   }, [surveyData, respondentId]);
 
+  // AI評価状態の復元
+  useEffect(() => {
+    const loadAiEvaluationStatus = async () => {
+      try {
+        const storedRespondentId = sessionStorage.getItem('respondentId');
+        const currentRespondentId = storedRespondentId || respondentId;
+        
+        if (!currentRespondentId || surveyData.length === 0) return;
+
+        const apiUrl = import.meta.env.MODE === 'development' 
+          ? '/api/GetEvaluationStatus'
+          : (import.meta.env.VITE_GET_EVALUATION_STATUS_API_URL || '/api/GetEvaluationStatus');
+
+        const response = await fetch(`${apiUrl}?respondentId=${currentRespondentId}`);
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.evaluations && result.evaluations.length > 0) {
+            const restoredEvaluationStatus = {};
+            
+            // 中項目番号と名前をマッピング
+            surveyData.forEach(category => {
+              category.subcategories.forEach(subcategory => {
+                const subcategoryId = subcategory.items[0]?.chuItemNumber;
+                if (subcategoryId) {
+                  const evaluation = result.evaluations.find(e => {
+                    const responseSubcategoryId = e.subcategoryId || e.SubcategoryId || '';
+                    return responseSubcategoryId === subcategoryId;
+                  });
+                  
+                  if (evaluation) {
+                    const status = (evaluation.status || evaluation.Status || '').toLowerCase();
+                    
+                    restoredEvaluationStatus[subcategory.name] = {
+                      status: status,
+                      evaluationText: evaluation.evaluationText || evaluation.EvaluationText || '',
+                      recommendationText: evaluation.recommendationText || evaluation.RecommendationText || '',
+                      isLocked: status === 'completed', // 完了済みの場合はロック
+                      isEditing: false
+                    };
+                    
+                    console.log(`AI評価状態を復元: ${subcategory.name}, status: ${status}`);
+                  }
+                }
+              });
+            });
+            
+            setAiEvaluationStatus(restoredEvaluationStatus);
+            console.log('AI評価状態の復元完了:', restoredEvaluationStatus);
+          }
+        }
+      } catch (err) {
+        console.error("AI評価状態の読み込み中にエラー:", err);
+      }
+    };
+
+    if (surveyData.length > 0) {
+      loadAiEvaluationStatus();
+    }
+  }, [surveyData, respondentId]);
+
   const toggleSection = (categoryName) => {
     setOpenSections(prev => ({ ...prev, [categoryName]: !prev[categoryName] }));
   };
@@ -190,17 +251,19 @@ import { parseExcelDataToJson } from './parser.js';
   const checkAndStartAutoEvaluation = (currentAnswers) => {
     surveyData.forEach(category => {
       category.subcategories.forEach(subcategory => {
-        const wasCompleted = isSubcategoryCompleted(subcategory);
-        
         // 新しい回答で完了判定
         const isNowCompleted = subcategory.items.every(item => {
           const answer = currentAnswers[item.id];
           return answer && answer.score !== undefined;
         });
         
-        // 完了状態になり、まだAI評価が開始されていない場合
+        // 完了状態になり、まだAI評価が開始されていない場合のみ実行
         const evaluationStatus = aiEvaluationStatus[subcategory.name];
-        if (isNowCompleted && (!evaluationStatus || evaluationStatus.status === 'pending')) {
+        const shouldStartEvaluation = isNowCompleted && 
+          (!evaluationStatus || 
+           (evaluationStatus.status === 'pending' && !evaluationStatus.isLocked && !evaluationStatus.isEditing));
+        
+        if (shouldStartEvaluation) {
           console.log(`中項目 "${subcategory.name}" が完了しました。自動AI評価を開始します。`);
           startAiEvaluation(subcategory, true); // 自動開始フラグをtrueに
         }
