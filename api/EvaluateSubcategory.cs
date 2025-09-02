@@ -20,7 +20,7 @@ namespace Company.Function
             _logger = loggerFactory.CreateLogger<EvaluateSubcategory>();
         }
 
-        [Function("EvaluateSubcategory")]
+        [Function("EvaluateSubcategory")] // Corrected misplaced brackets
         public async Task<HttpResponseData> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options")] HttpRequestData req)
         {
@@ -273,15 +273,76 @@ namespace Company.Function
                 _logger.LogInformation($"Azure OpenAI API Key (first 10 chars): {azureOpenAiApiKey.Substring(0, Math.Min(10, azureOpenAiApiKey.Length))}");
                 Console.WriteLine($"[INFO] Azure OpenAI API Key (first 10 chars): {azureOpenAiApiKey.Substring(0, Math.Min(10, azureOpenAiApiKey.Length))}");
 
+                // データベースから必要なデータを取得
+                string evaluationData;
+                try
+                {
+                    evaluationData = await GetEvaluationDataAsync(respondentId, subcategoryId, connectionString);
+                    _logger.LogInformation($"評価データ取得完了 (length: {evaluationData.Length})");
+                    Console.WriteLine($"[INFO] 評価データ取得完了 (length: {evaluationData.Length})");
+                }
+                catch (Exception dataEx)
+                {
+                    string errorMsg = $"評価データの取得に失敗しました: {dataEx.Message}";
+                    _logger.LogError(dataEx, errorMsg);
+                    Console.WriteLine($"[ERROR] {errorMsg}");
+                    await UpdateStatusToError(respondentId, subcategoryId, errorMsg);
+                    return;
+                }
+
+                var systemPrompt = @"
+役割
+あなたは、データ保護と情報セキュリティを専門とする、経験豊富で共感能力の高いビジネスコンサルタントです。あなたの役割は、クライアントが提出した自己評価データを分析し、単に弱点を指摘するだけでなく、彼らが次の一歩を踏み出すための、前向きで具体的、かつ実行可能なアドバイスを提供することです。あなたは専門家であると同時に、クライアントのビジネスパートナーでもあります。
+
+最終目的
+提供されたクライアントの回答データと、定義された「あるべき姿」を基に、以下の2つを生成してください。
+
+1. クライアントの現状を正確に反映し、背景事情も考慮した**「現状評価」**
+2. ギャップを埋めるための、優先順位を付けた**「具体的な推奨事項」**
+
+最終的なゴールは、クライアントが自社の状況を客観的に理解し、改善に向けた明確なアクションプランを手に入れることです。
+
+思考プロセス
+以下のステップで思考し、最終的なアウトプットを生成してください。
+
+1. 基準の理解: まず、ideal_stateを精読し、この中項目で達成すべき完璧な状態を完全に理解します。
+2. 定量的分析: 次に、questions配列内の各質問のselected_optionのscoreを確認し、この項目におけるクライアントの全体的な成熟度を定量的に把握します。
+3. 定性的分析: 続いて、user_commentを注意深く読み込みます。ここに書かれていることは、選択式回答の背景にある**「なぜ」**を理解する上で最も重要な情報です。
+4. ギャップ分析: 上記1〜3で得た情報を統合します。クライアントの現状と理想を比較し、その間に存在する主要なギャップを特定します。評価コメントを記述する際は、user_commentの内容に触れ、「〇〇というご状況なのですね」といった形で、クライアントの状況を理解していることを示してください。
+5. 解決策の立案: 特定したギャップを埋めるための、具体的で実行可能な推奨事項を複数立案します。
+
+出力形式
+必ず以下のJSON形式で出力してください。
+
+{
+  ""evaluation_summary"": ""（現状評価のサマリーを2〜3文で記述。クライアントのコメントを踏まえ、共感的な視点を含める）"",
+  ""maturity_level"": ""（スコアの平均点から、「要改善」「基礎段階」「実践段階」「最適化段階」の4段階で判定）"",
+  ""recommendations"": [
+    {
+      ""priority"": ""高"",
+      ""title"": ""（推奨事項1の短いタイトル）"",
+      ""description"": ""（この推奨事項が必要な理由と、具体的な内容を記述）"",
+      ""first_step"": ""（明日からでも始められる最初の具体的な一歩を記述）""
+    }
+  ]
+}
+
+重要指示とトーン
+- パートナーとしての視点: クライアントの状況を理解し、改善をサポートするパートナーとしての、協力的で前向きなトーンを維持してください。
+- パーソナライズ: user_commentの内容を積極的に引用・参照し、生成する文章がクライアント個人のためのものであることを明確に示してください。
+- 具体的かつ実践的に: 「頑張る」「意識する」といった精神論ではなく、具体的な行動につながる言葉で推奨事項を記述してください。";
+
+                var userPrompt = $"以下のデータに基づいて、この中項目の現状評価と推奨事項を生成してください：\n\n{evaluationData}";
+
                 var requestBody = new
                 {
                     messages = new[]
                     {
-                        new { role = "system", content = "あなたは親切なアシスタントです。" },
-                        new { role = "user", content = "今日の天気について教えてください" }
+                        new { role = "system", content = systemPrompt },
+                        new { role = "user", content = userPrompt }
                     },
-                    max_tokens = 150,
-                    temperature = 0.7
+                    max_tokens = 2000,
+                    temperature = 0.3
                 };
 
                 var json = JsonConvert.SerializeObject(requestBody);
@@ -338,23 +399,91 @@ namespace Company.Function
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
                     _logger.LogInformation($"Raw Azure OpenAI response: {responseContent}");
-                    dynamic? apiResponse = JsonConvert.DeserializeObject(responseContent);
+                    Console.WriteLine($"[INFO] Raw Azure OpenAI response: {responseContent}");
                     
+                    dynamic? apiResponse = JsonConvert.DeserializeObject(responseContent);
                     aiResponse = apiResponse?.choices?[0]?.message?.content?.ToString() ?? "Azure OpenAI API response was empty";
                     _logger.LogInformation($"Azure OpenAI response received (length: {aiResponse.Length})");
+                    Console.WriteLine($"[INFO] Azure OpenAI response received (length: {aiResponse.Length})");
                 }
                 
                 _logger.LogInformation($"Attempting database connection for status update");
+                Console.WriteLine("[INFO] Attempting database connection for status update");
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
                     _logger.LogInformation($"Database connection opened successfully");
+                    Console.WriteLine("[INFO] Database connection opened successfully");
 
-                    // OpenAI APIの結果をデータベースに保存
-                    var evaluationText = $"[OpenAI評価] 中項目 {subcategoryId} の評価を完了しました。";
-                    var recommendationText = aiResponse; // OpenAI APIからの回答を推奨事項として使用
+                    // AIレスポンスをJSONとしてパース
+                    string evaluationText = "";
+                    string recommendationText = "";
                     
-                    _logger.LogInformation($"Generated OpenAI evaluation data (evaluation: {evaluationText.Length} chars, recommendation: {recommendationText.Length} chars)");
+                    // デバッグ: AIレスポンスの内容を詳しく確認
+                    _logger.LogInformation($"AI Response Debug - Length: {aiResponse.Length}");
+                    _logger.LogInformation($"AI Response Debug - First 500 chars: {aiResponse.Substring(0, Math.Min(500, aiResponse.Length))}");
+                    Console.WriteLine($"[DEBUG] AI Response - Length: {aiResponse.Length}");
+                    Console.WriteLine($"[DEBUG] AI Response - First 500 chars: {aiResponse.Substring(0, Math.Min(500, aiResponse.Length))}");
+                    
+                    try
+                    {
+                        // AIレスポンスからJSON部分を抽出
+                        string jsonContent = aiResponse;
+                        
+                        // JSONの開始位置を見つける（{で始まる部分）
+                        int jsonStart = aiResponse.IndexOf('{');
+                        if (jsonStart >= 0)
+                        {
+                            // JSONの終了位置を見つける（最後の}）
+                            int jsonEnd = aiResponse.LastIndexOf('}');
+                            if (jsonEnd >= jsonStart)
+                            {
+                                jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+                                _logger.LogInformation($"Extracted JSON content: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
+                                Console.WriteLine($"[INFO] Extracted JSON content: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
+                            }
+                        }
+                        
+                        // 抽出されたJSONをパース
+                        var aiResponseJson = JsonConvert.DeserializeObject<dynamic>(jsonContent);
+                        
+                        // evaluation_summaryをevaluation_textに直接保存
+                        evaluationText = aiResponseJson?.evaluation_summary?.ToString() ?? "";
+                        
+                        // recommendationsの内容をrecommendation_textに保存
+                        var recommendations = aiResponseJson?.recommendations;
+                        if (recommendations != null)
+                        {
+                            var recommendationsList = new List<string>();
+                            foreach (var rec in recommendations)
+                            {
+                                var priority = rec?.priority?.ToString() ?? "";
+                                var title = rec?.title?.ToString() ?? "";
+                                var description = rec?.description?.ToString() ?? "";
+                                var firstStep = rec?.first_step?.ToString() ?? "";
+                                
+                                recommendationsList.Add($"優先度: {priority}\n{title}\n{description}\n最初の一歩: {firstStep}");
+                            }
+                            recommendationText = string.Join("\n\n---\n\n", recommendationsList);
+                        }
+                        
+                        _logger.LogInformation($"Successfully parsed AI response JSON");
+                        Console.WriteLine("[INFO] Successfully parsed AI response JSON");
+                    }
+                    catch (JsonException jsonEx)
+                    {
+                        _logger.LogWarning(jsonEx, "AI response is not valid JSON, using raw response");
+                        Console.WriteLine($"[WARNING] AI response is not valid JSON, using raw response: {jsonEx.Message}");
+                        Console.WriteLine($"[WARNING] JSON Error Details: {jsonEx.ToString()}");
+                        Console.WriteLine($"[WARNING] Full AI Response: {aiResponse}");
+                        
+                        // JSONでない場合は、生のレスポンスを使用
+                        evaluationText = "AI評価（テキスト形式）";
+                        recommendationText = aiResponse;
+                    }
+                    
+                    _logger.LogInformation($"Generated evaluation data (evaluation: {evaluationText.Length} chars, recommendation: {recommendationText.Length} chars)");
+                    Console.WriteLine($"[INFO] Generated evaluation data (evaluation: {evaluationText.Length} chars, recommendation: {recommendationText.Length} chars)");
 
                     var updateCmd = new SqlCommand(@"
                         UPDATE [AIAdvice_CHU$] 
@@ -370,10 +499,13 @@ namespace Company.Function
                     updateCmd.Parameters.AddWithValue("@RecommendationText", recommendationText);
                     
                     _logger.LogInformation($"Executing SQL UPDATE command");
+                    Console.WriteLine("[INFO] Executing SQL UPDATE command");
                     int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
                     _logger.LogInformation($"Status updated to completed for RespondentId={respondentId}, SubcategoryId={subcategoryId}, RowsAffected={rowsAffected}");
+                    Console.WriteLine($"[INFO] Status updated to completed for RespondentId={respondentId}, SubcategoryId={subcategoryId}, RowsAffected={rowsAffected}");
                     
                     _logger.LogInformation($"AI評価完了: RespondentId={respondentId}, SubcategoryId={subcategoryId}");
+                    Console.WriteLine($"[INFO] AI評価完了: RespondentId={respondentId}, SubcategoryId={subcategoryId}");
                 }
             }
             catch (Exception ex)
@@ -432,6 +564,97 @@ namespace Company.Function
             {
                 _logger.LogError(updateEx, $"エラーステータス更新に失敗しました: {updateEx.Message}, StackTrace: {updateEx.StackTrace}");
             }
+        }
+
+        private async Task<string> GetEvaluationDataAsync(string respondentId, string subcategoryId, string connectionString)
+        {
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // 1. 中項目の「あるべき姿」を取得
+            var idealStateSql = @"
+                SELECT [あるべき姿]
+                FROM [dbo].[SurveyCategoryTemplate$]
+                WHERE [中項目番号] = @SubcategoryId";
+
+            string idealState;
+            using (var idealStateCmd = new SqlCommand(idealStateSql, connection))
+            {
+                idealStateCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
+                var result = await idealStateCmd.ExecuteScalarAsync();
+                idealState = result?.ToString() ?? "あるべき姿の情報が見つかりません。";
+            }
+
+            // 2. ユーザーの自由記述コメントを取得
+            var commentSql = @"
+                SELECT [コメント]
+                FROM [dbo].[Answers$]
+                WHERE [回答者番号] = @RespondentId AND [中項目番号] = @SubcategoryId AND [コメント] IS NOT NULL AND [コメント] != ''";
+
+            string userComment;
+            using (var commentCmd = new SqlCommand(commentSql, connection))
+            {
+                commentCmd.Parameters.AddWithValue("@RespondentId", respondentId);
+                commentCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
+                var result = await commentCmd.ExecuteScalarAsync();
+                userComment = result?.ToString() ?? "";
+            }
+
+            // 3. この中項目に属する質問と回答を取得
+            var questionsSql = @"
+                SELECT DISTINCT
+                    o.[チェック項目],
+                    sa.[対策評価_回答],
+                    o.[チェック項目番号]
+                FROM [dbo].[SurveyOptions$] o
+                INNER JOIN [dbo].[Answers$] sa ON o.[チェック項目番号] = sa.[チェック項目番号]
+                WHERE sa.[回答者番号] = @RespondentId AND o.[中項目番号] = @SubcategoryId
+                ORDER BY o.[チェック項目番号]";
+
+            var questions = new List<object>();
+            using (var questionsCmd = new SqlCommand(questionsSql, connection))
+            {
+                questionsCmd.Parameters.AddWithValue("@RespondentId", respondentId);
+                questionsCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
+                
+                using var reader = await questionsCmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    questions.Add(new
+                    {
+                        question_text = reader["チェック項目"]?.ToString() ?? "",
+                        selected_option = new
+                        {
+                            text = reader["対策評価_回答"]?.ToString() ?? ""
+                        }
+                    });
+                }
+            }
+
+            // 4. 中項目名を取得
+            var subcategoryNameSql = @"
+                SELECT [中項目]
+                FROM [dbo].[SurveyCategoryTemplate$]
+                WHERE [中項目番号] = @SubcategoryId";
+
+            string subcategoryName;
+            using (var subcategoryNameCmd = new SqlCommand(subcategoryNameSql, connection))
+            {
+                subcategoryNameCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
+                var result = await subcategoryNameCmd.ExecuteScalarAsync();
+                subcategoryName = result?.ToString() ?? $"中項目{subcategoryId}";
+            }
+
+            // JSONデータを構築
+            var evaluationData = new
+            {
+                subcategory_name = subcategoryName,
+                ideal_state = idealState,
+                user_comment = userComment,
+                questions = questions
+            };
+
+            return JsonConvert.SerializeObject(evaluationData, Formatting.Indented);
         }
 
         public class EvaluationRequest
