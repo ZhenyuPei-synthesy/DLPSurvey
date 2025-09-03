@@ -268,21 +268,12 @@ const Report = ({ answers, surveyData }) => {
   const subcategoryData = getSubcategoryComments();
   const detailData = getDetailedEvaluationData();
 
-  // 目標スコアの定義
-  const targetScores = {
-    '1. 全社的・組織的管理': 3.75,
-    '2. 人的管理': 3.5,
-    '3. 物理的管理': 3.2,
-    '4. 技術的・IT管理': 3.75,
-    '5. サプライチェーン・外部連携管理': 3.3
-  };
-
   // レーダーチャートのデータ
   const radarData = {
     labels: Object.keys(categoryScores),
     datasets: [
       {
-        label: '実績スコア',
+        label: '平均スコア',
         data: Object.values(categoryScores),
         backgroundColor: 'rgba(59, 130, 246, 0.2)',
         borderColor: 'rgba(59, 130, 246, 1)',
@@ -291,18 +282,6 @@ const Report = ({ answers, surveyData }) => {
         pointBorderColor: '#fff',
         pointHoverBackgroundColor: '#fff',
         pointHoverBorderColor: 'rgba(59, 130, 246, 1)',
-      },
-      {
-        label: '目標スコア(当社推奨値)',
-        data: Object.keys(categoryScores).map(category => targetScores[category] || 0),
-        backgroundColor: 'rgba(239, 68, 68, 0.2)',
-        borderColor: 'rgba(239, 68, 68, 1)',
-        borderWidth: 2,
-        pointBackgroundColor: 'rgba(239, 68, 68, 1)',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: 'rgba(239, 68, 68, 1)',
-        borderDash: [5, 5], // 点線スタイル
       },
     ],
   };
@@ -391,6 +370,14 @@ const Report = ({ answers, surveyData }) => {
         {/* レーダーチャートセクション */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-2xl font-bold text-center mb-6">評価結果レポート</h2>
+          
+          <div className="flex justify-center mb-4">
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-blue-500 mr-2"></div>
+              <span className="text-sm text-slate-600">平均スコア</span>
+            </div>
+          </div>
+
           <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
             {/* レーダーチャート */}
             <div className="w-full max-w-md h-96">
@@ -399,27 +386,17 @@ const Report = ({ answers, surveyData }) => {
 
             {/* 大項目別平均スコア */}
             <div className="w-full lg:w-80">
+              <h3 className="text-xl font-bold mb-4">大項目別 平均スコア</h3>
               <div className="space-y-3">
                 {Object.entries(categoryScores).map(([category, score]) => (
-                  <div key={category} className="border-b border-gray-100 pb-2">
-                    <div className="text-slate-700 text-sm mb-1">{category}</div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center">
-                        <span className="text-xs text-slate-500 mr-2">実績:</span>
-                        <span className={`font-bold ${
-                          parseFloat(score) >= 4 ? 'text-green-600' : 
-                          parseFloat(score) >= 2 ? 'text-yellow-600' : 'text-red-600'
-                        }`}>
-                          {score}
-                        </span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-xs text-slate-500 mr-2">目標:</span>
-                        <span className="font-bold text-red-600">
-                          {targetScores[category] || '-'}
-                        </span>
-                      </div>
-                    </div>
+                  <div key={category} className="flex justify-between items-center">
+                    <span className="text-slate-700">{category}</span>
+                    <span className={`font-bold text-lg ${
+                      parseFloat(score) >= 4 ? 'text-green-600' : 
+                      parseFloat(score) >= 2 ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {score}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -429,7 +406,7 @@ const Report = ({ answers, surveyData }) => {
 
         {/* 中項目別総評コメント */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <h2 className="text-2xl font-bold mb-6">中項目別 総評コメント（AIによる自動評価・推奨事項提案）</h2>
+          <h2 className="text-2xl font-bold mb-6">中項目別 総評コメント（AIによる評価・推奨事項提案）</h2>
           
           {surveyData.map((category) => (
             <div key={category.category} className="mb-8">
@@ -464,15 +441,17 @@ const Report = ({ answers, surveyData }) => {
                     {/* AI評価結果を優先表示 */}
                     {aiEvaluation && aiEvaluation.recommendationText ? (
                       <div className="mb-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-md">
-                        <h5 className="font-semibold text-blue-800 text-sm mb-1">AI評価</h5>
                         {aiEvaluation.evaluationText && (
-                          <p className="text-blue-700 text-sm mb-2">
-                            <strong>評価:</strong> {aiEvaluation.evaluationText}
-                          </p>
+                          <div className="text-blue-700 text-sm mb-2">
+                            <strong>評価:</strong> 
+                            <span dangerouslySetInnerHTML={{ __html: aiEvaluation.evaluationText }} />
+                          </div>
                         )}
-                        <p className="text-blue-700 text-sm">
-                          <strong>推奨事項:</strong> {aiEvaluation.recommendationText}
-                        </p>
+                        <div className="text-blue-700 text-sm">
+                          <strong>推奨事項:</strong>
+                          {/* dangerouslySetInnerHTMLを使用してHTMLをレンダリング */}
+                          <span dangerouslySetInnerHTML={{ __html: aiEvaluation.recommendationText }} />
+                      </div>
                       </div>
                     ) : null}
                     
@@ -570,20 +549,8 @@ const Report = ({ answers, surveyData }) => {
             </table>
           </div>
         </div>
-        {/* 免責事項 */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg shadow-sm p-6 mb-8">
-          <h2 className="text-xl font-bold mb-4 text-amber-800 flex items-center">
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            免責事項
-          </h2>
-          <p className="text-amber-800 text-sm leading-relaxed">
-            本アセスメントで表示されるAIによる評価結果は、あくまで提供された情報に基づいた自動的な分析によるものであり、その正確性や完全性を保証するものではありません。評価結果は参考情報としてご活用いただき、最終的な判断や具体的な対策の実施に際しては、専門家にご相談されることを推奨します。
-          </p>
-        </div>
 
-        {/* ダウンロードボタン */}
+        {/* 戻るボタン */}
         <div className="text-center mt-8">
           <button
             onClick={downloadPDF}

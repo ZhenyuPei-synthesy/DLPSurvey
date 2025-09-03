@@ -311,19 +311,19 @@ namespace Company.Function
 
 1. 基準の理解: まず、ideal_stateを精読し、この中項目で達成すべき完璧な状態を完全に理解します。
 2. 定量的分析: 次に、questions配列内の各質問のselected_optionのscoreを確認し、この項目におけるクライアントの全体的な成熟度を定量的に把握します。
-3. 定性的分析: 続いて、user_commentを注意深く読み込みます。ここに書かれていることは、選択式回答の背景にある**「なぜ」**を理解する上で最も重要な情報です。
-4. ギャップ分析: 上記1〜3で得た情報を統合します。クライアントの現状と理想を比較し、その間に存在する主要なギャップを特定します。評価コメントを記述する際は、user_commentの内容に触れ、「〇〇というご状況なのですね」といった形で、クライアントの状況を理解していることを示してください。
-5. 解決策の立案: 特定したギャップを埋めるための、具体的で実行可能な推奨事項を複数立案します。
+3. ギャップ分析: 上記1〜2で得た情報を統合します。まず、scoreを見て、あるべき姿におけるscoreに達している想定で評価（認めてあげる）してください。でも、実際回答からあるべき姿におけるscoreに達しているかどうかが判断できない部分に関しては、判断できなかった旨を伝えつつ、もしやっていない場合やるようにとソフトに伝えてください。
+4. 解決策の立案: あるべき姿における回答者のscoreレベルまで達成できている前提で次の段階（あるべき姿の全部の要件を満たしている状態ではなく、今のScoreから見た次のステップ）に向けた改善提案を１つ立案してください。
+   
+ --- IGNORE ---
 
 出力形式
 必ず以下のJSON形式で出力してください。
 
 {
-  ""evaluation_summary"": ""（現状評価のサマリーを2〜3文で記述。クライアントのコメントを踏まえ、共感的な視点を含める）"",
-  ""maturity_level"": ""（スコアの平均点から、「要改善」「基礎段階」「実践段階」「最適化段階」の4段階で判定）"",
+  ""evaluation_summary"": ""（現状評価のサマリーを2〜3文で記述。）"",
+  ""maturity_level"": ""（スコアの平均点から、「リスク未管理」「基礎的な防御」「管理された防御」「予測的な防御」の4段階で判定）"",
   ""recommendations"": [
     {
-      ""priority"": ""高"",
       ""title"": ""（推奨事項1の短いタイトル）"",
       ""description"": ""（この推奨事項が必要な理由と、具体的な内容を記述）"",
       ""first_step"": ""（明日からでも始められる最初の具体的な一歩を記述）""
@@ -334,7 +334,8 @@ namespace Company.Function
 重要指示とトーン
 - パートナーとしての視点: クライアントの状況を理解し、改善をサポートするパートナーとしての、協力的で前向きなトーンを維持してください。
 - パーソナライズ: user_commentの内容を積極的に引用・参照し、生成する文章がクライアント個人のためのものであることを明確に示してください。
-- 具体的かつ実践的に: 「頑張る」「意識する」といった精神論ではなく、具体的な行動につながる言葉で推奨事項を記述してください。";
+- 具体的かつ実践的に: 「頑張る」「意識する」といった精神論ではなく、具体的な行動につながる言葉で推奨事項を記述してください。
+- 回答者を”貴社”と表現し、親しみやすく丁寧な口調で記述してください。";
 
                 var userPrompt = $"以下のデータに基づいて、この中項目の現状評価と推奨事項を生成してください：\n\n{evaluationData}";
 
@@ -496,8 +497,10 @@ namespace Company.Function
                         // 抽出されたJSONをパース
                         var aiResponseJson = JsonConvert.DeserializeObject<dynamic>(jsonContent);
                         
-                        // evaluation_summaryをevaluation_textに直接保存
-                        evaluationText = aiResponseJson?.evaluation_summary?.ToString() ?? "";
+                        // maturity_levelとevaluation_summaryをevaluation_textに保存
+                        var evaluationSummary = aiResponseJson?.evaluation_summary?.ToString() ?? "";
+                        var maturityLevel = aiResponseJson?.maturity_level?.ToString() ?? "";
+                        evaluationText = string.IsNullOrEmpty(maturityLevel) ? evaluationSummary : $"【{maturityLevel}】<br>{evaluationSummary}";
                         
                         // recommendationsの内容をrecommendation_textに保存
                         var recommendations = aiResponseJson?.recommendations;
@@ -510,12 +513,14 @@ namespace Company.Function
                                 var title = rec?.title?.ToString() ?? "";
                                 var description = rec?.description?.ToString() ?? "";
                                 var firstStep = rec?.first_step?.ToString() ?? "";
-                                
-                                recommendationsList.Add($"優先度: {priority}\n{title}\n{description}\n最初の一歩: {firstStep}");
+
+                                // HTMLタグを使って文字列を構築
+                                recommendationsList.Add($"【{title}】<br>{description}<br><b>Next Action:</b><br>{firstStep}");
                             }
-                            recommendationText = string.Join("\n\n---\n\n", recommendationsList);
+                            // 複数の推奨事項がある場合、<br>タグで間隔をあけて連結
+                            recommendationText = string.Join("<br><br>", recommendationsList);
                         }
-                        
+                         
                         _logger.LogInformation($"Successfully parsed AI response JSON");
                         Console.WriteLine("[INFO] Successfully parsed AI response JSON");
                     }
