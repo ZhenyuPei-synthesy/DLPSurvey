@@ -95,9 +95,9 @@ namespace Company.Function
                             {
                                 var insertCmd = new SqlCommand(@"
                                     INSERT INTO [Answers$] 
-                                        ([回答者番号], [チェック項目番号], [中項目番号], [大項目], [中項目], [チェック項目], [対策評価_回答], [コメント]) 
+                                        ([回答者番号], [チェック項目番号], [中項目番号], [大項目], [中項目], [チェック項目], [対策評価_回答], [スコア], [コメント]) 
                                         VALUES 
-                                        (@RespondentId, @ItemId, @ChuItemNumber, @Category, @Subcategory, @Question, @CountermeasureEvaluation, @Comment)", 
+                                        (@RespondentId, @ItemId, @ChuItemNumber, @Category, @Subcategory, @Question, @CountermeasureEvaluation, @Score, @Comment)", 
                                     connection, transaction);
                                 
                                 insertCmd.Parameters.AddWithValue("@RespondentId", requestData.RespondentId ?? "");
@@ -106,7 +106,28 @@ namespace Company.Function
                                 insertCmd.Parameters.AddWithValue("@Subcategory", answerItem.Subcategory ?? (object)DBNull.Value);
                                 insertCmd.Parameters.AddWithValue("@ChuItemNumber", answerItem.ChuItemNumber ?? (object)DBNull.Value);
                                 insertCmd.Parameters.AddWithValue("@Question", answerItem.Question ?? (object)DBNull.Value);
-                                insertCmd.Parameters.AddWithValue("@CountermeasureEvaluation", answerItem.CountermeasureEvaluation ?? (object)DBNull.Value);
+                                
+                                // CountermeasureEvaluationとScoreの処理
+                                string? fullEvaluation = null;
+                                int? score = null;
+                                
+                                if (!string.IsNullOrWhiteSpace(answerItem.CountermeasureEvaluation))
+                                {
+                                    if (answerItem.CountermeasureEvaluation == "該当なし")
+                                    {
+                                        fullEvaluation = "該当なし";
+                                        score = 0;
+                                    }
+                                    else
+                                    {
+                                        // SurveyOptions$から完全な対策評価テキストと点数を取得
+                                        fullEvaluation = await GetFullCountermeasureEvaluation(answerItem.QuestionNumber, answerItem.CountermeasureEvaluation, connection, transaction);
+                                        score = await GetScoreFromCountermeasureEvaluation(answerItem.QuestionNumber, answerItem.CountermeasureEvaluation, connection, transaction);
+                                    }
+                                }
+                                
+                                insertCmd.Parameters.AddWithValue("@CountermeasureEvaluation", fullEvaluation ?? (object)DBNull.Value);
+                                insertCmd.Parameters.AddWithValue("@Score", score ?? (object)DBNull.Value);
                                 insertCmd.Parameters.AddWithValue("@Comment", answerItem.Comment ?? (object)DBNull.Value);
                                 
                                 await insertCmd.ExecuteNonQueryAsync();
@@ -184,6 +205,48 @@ namespace Company.Function
                 });
                 return response;
             }
+        }
+
+        private async Task<string?> GetFullCountermeasureEvaluation(string? questionNumber, string? partialText, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (string.IsNullOrWhiteSpace(questionNumber) || string.IsNullOrWhiteSpace(partialText))
+                return partialText;
+
+            var sql = @"
+                SELECT TOP 1 [対策評価] 
+                FROM [SurveyOptions$] 
+                WHERE [チェック項目番号] = @QuestionNumber 
+                AND ([対策評価] LIKE '%' + @PartialText + '%' OR [対策評価] = @PartialText)
+                ORDER BY LEN([対策評価])";
+
+            using var cmd = new SqlCommand(sql, connection, transaction);
+            cmd.Parameters.AddWithValue("@QuestionNumber", questionNumber);
+            cmd.Parameters.AddWithValue("@PartialText", partialText);
+            
+            var result = await cmd.ExecuteScalarAsync();
+            return result?.ToString() ?? partialText;
+        }
+
+        private async Task<int?> GetScoreFromCountermeasureEvaluation(string? questionNumber, string? evaluationText, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (string.IsNullOrWhiteSpace(questionNumber) || string.IsNullOrWhiteSpace(evaluationText))
+                return null;
+
+            var sql = @"
+                SELECT TOP 1 [スコア] 
+                FROM [SurveyOptions$] 
+                WHERE [チェック項目番号] = @QuestionNumber 
+                AND ([対策評価] LIKE '%' + @EvaluationText + '%' OR [対策評価] = @EvaluationText)";
+
+            using var cmd = new SqlCommand(sql, connection, transaction);
+            cmd.Parameters.AddWithValue("@QuestionNumber", questionNumber);
+            cmd.Parameters.AddWithValue("@EvaluationText", evaluationText);
+            
+            var result = await cmd.ExecuteScalarAsync();
+            if (result != null && result != DBNull.Value && int.TryParse(result.ToString(), out var score))
+                return score;
+                
+            return null;
         }
 
         public class SaveAnswersRequest

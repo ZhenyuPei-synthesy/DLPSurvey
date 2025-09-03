@@ -265,10 +265,14 @@ namespace Company.Function
                 _logger.LogInformation($"Azure OpenAI config available - Endpoint: {azureOpenAiEndpoint}, Deployment: {deploymentName}");
                 Console.WriteLine($"[INFO] Azure OpenAI config available - Endpoint: {azureOpenAiEndpoint}, Deployment: {deploymentName}");
 
-                // Azure OpenAI APIへのHTTPリクエスト
+                // Azure OpenAI APIへのHTTPリクエスト（リトライ機能付き）
                 using var httpClient = new HttpClient();
-                httpClient.Timeout = TimeSpan.FromSeconds(30); // 30秒タイムアウト
+                httpClient.Timeout = TimeSpan.FromSeconds(60); // 60秒タイムアウト
                 httpClient.DefaultRequestHeaders.Add("api-key", azureOpenAiApiKey);
+                
+                // レート制限対応のためのリトライ設定
+                int maxRetries = 3;
+                int baseDelayMs = 1000;
                 
                 _logger.LogInformation($"Azure OpenAI API Key (first 10 chars): {azureOpenAiApiKey.Substring(0, Math.Min(10, azureOpenAiApiKey.Length))}");
                 Console.WriteLine($"[INFO] Azure OpenAI API Key (first 10 chars): {azureOpenAiApiKey.Substring(0, Math.Min(10, azureOpenAiApiKey.Length))}");
@@ -356,29 +360,67 @@ namespace Company.Function
                 Console.WriteLine($"[INFO] Calling Azure OpenAI API: {apiUrl}");
                 Console.WriteLine($"[INFO] Request body: {json}");
                 
-                HttpResponseMessage response;
-                try
+                HttpResponseMessage? response = null;
+                Exception? lastException = null;
+                
+                // リトライ機能付きでAzure OpenAI APIを呼び出し
+                for (int attempt = 0; attempt < maxRetries; attempt++)
                 {
-                    Console.WriteLine("[DEBUG] About to make HTTP POST request...");
-                    response = await httpClient.PostAsync(apiUrl, content);
-                    Console.WriteLine($"[DEBUG] HTTP POST completed. Status: {response.StatusCode}");
+                    try
+                    {
+                        if (attempt > 0)
+                        {
+                            int delay = baseDelayMs * (int)Math.Pow(2, attempt - 1);
+                            _logger.LogInformation($"Retrying Azure OpenAI API call after {delay}ms delay (attempt {attempt + 1}/{maxRetries})");
+                            await Task.Delay(delay);
+                        }
+                        
+                        Console.WriteLine($"[DEBUG] About to make HTTP POST request (attempt {attempt + 1})...");
+                        response = await httpClient.PostAsync(apiUrl, content);
+                        Console.WriteLine($"[DEBUG] HTTP POST completed. Status: {response.StatusCode}");
+                        
+                        // 成功した場合はループを抜ける
+                        break;
+                    }
+                    catch (HttpRequestException httpEx)
+                    {
+                        lastException = httpEx;
+                        string errorMsg = $"HTTP request exception when calling Azure OpenAI (attempt {attempt + 1}/{maxRetries}): {httpEx.Message}";
+                        _logger.LogWarning(httpEx, errorMsg);
+                        Console.WriteLine($"[WARNING] {errorMsg}");
+                        
+                        if (attempt == maxRetries - 1)
+                        {
+                            _logger.LogError(httpEx, "All retry attempts failed for Azure OpenAI API call");
+                            Console.WriteLine($"[ERROR] All retry attempts failed: {httpEx.Message}");
+                            await UpdateStatusToError(respondentId, subcategoryId, $"HTTP request failed after {maxRetries} attempts: {httpEx.Message}");
+                            return;
+                        }
+                    }
+                    catch (TaskCanceledException tcEx)
+                    {
+                        lastException = tcEx;
+                        string errorMsg = $"Azure OpenAI API call timed out (attempt {attempt + 1}/{maxRetries}): {tcEx.Message}";
+                        _logger.LogWarning(tcEx, errorMsg);
+                        Console.WriteLine($"[WARNING] {errorMsg}");
+                        
+                        if (attempt == maxRetries - 1)
+                        {
+                            _logger.LogError(tcEx, "All retry attempts failed due to timeout");
+                            Console.WriteLine($"[ERROR] All timeout retries failed: {tcEx.Message}");
+                            await UpdateStatusToError(respondentId, subcategoryId, $"Azure OpenAI API timeout after {maxRetries} attempts");
+                            return;
+                        }
+                    }
                 }
-                catch (HttpRequestException httpEx)
+
+                // レスポンスがnullの場合（リトライがすべて失敗）
+                if (response == null)
                 {
-                    string errorMsg = $"HTTP request exception when calling Azure OpenAI: {httpEx.Message}";
-                    _logger.LogError(httpEx, errorMsg);
+                    string errorMsg = $"All attempts to call Azure OpenAI API failed. Last exception: {lastException?.Message}";
+                    _logger.LogError(errorMsg);
                     Console.WriteLine($"[ERROR] {errorMsg}");
-                    Console.WriteLine($"[ERROR] HttpRequestException stack trace: {httpEx.StackTrace}");
-                    await UpdateStatusToError(respondentId, subcategoryId, $"HTTP request failed: {httpEx.Message}");
-                    return;
-                }
-                catch (TaskCanceledException tcEx)
-                {
-                    string errorMsg = $"Azure OpenAI API call timed out: {tcEx.Message}";
-                    _logger.LogError(tcEx, errorMsg);
-                    Console.WriteLine($"[ERROR] {errorMsg}");
-                    Console.WriteLine($"[ERROR] TaskCanceledException stack trace: {tcEx.StackTrace}");
-                    await UpdateStatusToError(respondentId, subcategoryId, "Azure OpenAI API timeout");
+                    await UpdateStatusToError(respondentId, subcategoryId, errorMsg);
                     return;
                 }
 
@@ -407,9 +449,16 @@ namespace Company.Function
                     Console.WriteLine($"[INFO] Azure OpenAI response received (length: {aiResponse.Length})");
                 }
                 
+                // データベース接続タイムアウトを含む接続文字列を構成
+                var connectionStringBuilder = new SqlConnectionStringBuilder(connectionString)
+                {
+                    ConnectTimeout = 30,
+                    CommandTimeout = 60
+                };
+                
                 _logger.LogInformation($"Attempting database connection for status update");
                 Console.WriteLine("[INFO] Attempting database connection for status update");
-                using (var connection = new SqlConnection(connectionString))
+                using (var connection = new SqlConnection(connectionStringBuilder.ConnectionString))
                 {
                     await connection.OpenAsync();
                     _logger.LogInformation($"Database connection opened successfully");
@@ -568,104 +617,115 @@ namespace Company.Function
 
         private async Task<string> GetEvaluationDataAsync(string respondentId, string subcategoryId, string connectionString)
         {
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-
-            // 1. 中項目の「あるべき姿」を取得
-            var idealStateSql = @"
-                SELECT [あるべき姿]
-                FROM [dbo].[SurveyCategoryTemplate$]
-                WHERE [中項目番号] = @SubcategoryId";
-
-            string idealState;
-            using (var idealStateCmd = new SqlCommand(idealStateSql, connection))
+            try
             {
-                idealStateCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
-                var result = await idealStateCmd.ExecuteScalarAsync();
-                idealState = result?.ToString() ?? "あるべき姿の情報が見つかりません。";
-            }
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+                _logger.LogInformation($"Database connection opened for evaluation data retrieval: RespondentId={respondentId}, SubcategoryId={subcategoryId}");
 
-            // 2. ユーザーの自由記述コメントを取得
-            var commentSql = @"
-                SELECT [コメント]
-                FROM [dbo].[Answers$]
-                WHERE [回答者番号] = @RespondentId AND [中項目番号] = @SubcategoryId AND [コメント] IS NOT NULL AND [コメント] != ''";
+                // 1. 中項目の「あるべき姿」を取得
+                var idealStateSql = @"
+                    SELECT [あるべき姿]
+                    FROM [dbo].[SurveyCategoryTemplate$]
+                    WHERE [中項目番号] = @SubcategoryId";
 
-            string userComment;
-            using (var commentCmd = new SqlCommand(commentSql, connection))
-            {
-                commentCmd.Parameters.AddWithValue("@RespondentId", respondentId);
-                commentCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
-                var result = await commentCmd.ExecuteScalarAsync();
-                userComment = result?.ToString() ?? "";
-            }
-
-            // 3. この中項目に属する質問と回答を取得
-            var questionsSql = @"
-                SELECT DISTINCT
-                    o.[チェック項目],
-                    sa.[対策評価_回答],
-                    o.[チェック項目番号],
-                    so.[点数] as [score]
-                FROM [dbo].[SurveyOptions$] o
-                INNER JOIN [dbo].[Answers$] sa ON o.[チェック項目番号] = sa.[チェック項目番号]
-                LEFT JOIN [dbo].[SurveyOptions$] so ON so.[チェック項目番号] = sa.[チェック項目番号] AND so.[選択肢] = sa.[対策評価_回答]
-                WHERE sa.[回答者番号] = @RespondentId AND o.[中項目番号] = @SubcategoryId
-                ORDER BY o.[チェック項目番号]";
-
-            var questions = new List<object>();
-            using (var questionsCmd = new SqlCommand(questionsSql, connection))
-            {
-                questionsCmd.Parameters.AddWithValue("@RespondentId", respondentId);
-                questionsCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
-                
-                using var reader = await questionsCmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
+                string idealState;
+                using (var idealStateCmd = new SqlCommand(idealStateSql, connection))
                 {
-                    // スコアを取得（NULL の場合は 0）
-                    var scoreValue = reader["score"];
-                    int score = 0;
-                    if (scoreValue != null && scoreValue != DBNull.Value)
-                    {
-                        int.TryParse(scoreValue.ToString(), out score);
-                    }
-
-                    questions.Add(new
-                    {
-                        question_text = reader["チェック項目"]?.ToString() ?? "",
-                        selected_option = new
-                        {
-                            text = reader["対策評価_回答"]?.ToString() ?? "",
-                            score = score
-                        }
-                    });
+                    idealStateCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
+                    var result = await idealStateCmd.ExecuteScalarAsync();
+                    idealState = result?.ToString() ?? "あるべき姿の情報が見つかりません。";
+                    _logger.LogInformation($"Retrieved ideal state (length: {idealState.Length})");
                 }
+
+                // 2. ユーザーの自由記述コメントを取得
+                var commentSql = @"
+                    SELECT [コメント]
+                    FROM [dbo].[Answers$]
+                    WHERE [回答者番号] = @RespondentId AND [中項目番号] = @SubcategoryId AND [コメント] IS NOT NULL AND [コメント] != ''";
+
+                string userComment;
+                using (var commentCmd = new SqlCommand(commentSql, connection))
+                {
+                    commentCmd.Parameters.AddWithValue("@RespondentId", respondentId);
+                    commentCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
+                    var result = await commentCmd.ExecuteScalarAsync();
+                    userComment = result?.ToString() ?? "";
+                }
+
+                // 3. この中項目に属する質問と回答を取得
+                var questionsSql = @"
+                    SELECT DISTINCT
+                        o.[チェック項目],
+                        sa.[対策評価_回答],
+                        o.[チェック項目番号],
+                        so.[スコア] as [score]
+                    FROM [dbo].[SurveyOptions$] o
+                    INNER JOIN [dbo].[Answers$] sa ON o.[チェック項目番号] = sa.[チェック項目番号]
+                    LEFT JOIN [dbo].[SurveyOptions$] so ON so.[チェック項目番号] = sa.[チェック項目番号] AND so.[対策評価] = sa.[対策評価_回答]
+                    WHERE sa.[回答者番号] = @RespondentId AND o.[中項目番号] = @SubcategoryId
+                    ORDER BY o.[チェック項目番号]";
+
+                var questions = new List<object>();
+                using (var questionsCmd = new SqlCommand(questionsSql, connection))
+                {
+                    questionsCmd.Parameters.AddWithValue("@RespondentId", respondentId);
+                    questionsCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
+                    
+                    using var reader = await questionsCmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        // スコアを取得（NULL の場合は 0）
+                        var scoreValue = reader["score"];
+                        int score = 0;
+                        if (scoreValue != null && scoreValue != DBNull.Value)
+                        {
+                            int.TryParse(scoreValue.ToString(), out score);
+                        }
+
+                        questions.Add(new
+                        {
+                            question_text = reader["チェック項目"]?.ToString() ?? "",
+                            selected_option = new
+                            {
+                                text = reader["対策評価_回答"]?.ToString() ?? "",
+                                score = score
+                            }
+                        });
+                    }
+                }
+
+                // 4. 中項目名を取得
+                var subcategoryNameSql = @"
+                    SELECT [中項目]
+                    FROM [dbo].[SurveyCategoryTemplate$]
+                    WHERE [中項目番号] = @SubcategoryId";
+
+                string subcategoryName;
+                using (var subcategoryNameCmd = new SqlCommand(subcategoryNameSql, connection))
+                {
+                    subcategoryNameCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
+                    var result = await subcategoryNameCmd.ExecuteScalarAsync();
+                    subcategoryName = result?.ToString() ?? $"中項目{subcategoryId}";
+                }
+
+                // JSONデータを構築
+                var evaluationData = new
+                {
+                    subcategory_name = subcategoryName,
+                    ideal_state = idealState,
+                    user_comment = userComment,
+                    questions = questions
+                };
+
+                _logger.LogInformation($"Evaluation data prepared successfully for RespondentId={respondentId}, SubcategoryId={subcategoryId}");
+                return JsonConvert.SerializeObject(evaluationData, Formatting.Indented);
             }
-
-            // 4. 中項目名を取得
-            var subcategoryNameSql = @"
-                SELECT [中項目]
-                FROM [dbo].[SurveyCategoryTemplate$]
-                WHERE [中項目番号] = @SubcategoryId";
-
-            string subcategoryName;
-            using (var subcategoryNameCmd = new SqlCommand(subcategoryNameSql, connection))
+            catch (Exception ex)
             {
-                subcategoryNameCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
-                var result = await subcategoryNameCmd.ExecuteScalarAsync();
-                subcategoryName = result?.ToString() ?? $"中項目{subcategoryId}";
+                _logger.LogError(ex, $"Error retrieving evaluation data: RespondentId={respondentId}, SubcategoryId={subcategoryId}, Error={ex.Message}");
+                throw new Exception($"評価データの取得に失敗: {ex.Message}", ex);
             }
-
-            // JSONデータを構築
-            var evaluationData = new
-            {
-                subcategory_name = subcategoryName,
-                ideal_state = idealState,
-                user_comment = userComment,
-                questions = questions
-            };
-
-            return JsonConvert.SerializeObject(evaluationData, Formatting.Indented);
         }
 
         public class EvaluationRequest
