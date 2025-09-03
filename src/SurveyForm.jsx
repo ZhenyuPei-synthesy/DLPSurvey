@@ -708,11 +708,19 @@ import { parseExcelDataToJson } from './parser.js';
       {/* 固定進捗表示ヘッダー */}
       <div className="fixed top-48 left-0 right-0 z-20 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-3">
-          <div className="flex justify-center">
-            <div className="bg-blue-50 px-4 py-2 rounded-full border border-blue-200">
-              <span className="text-blue-800 font-medium text-sm">
-                回答進捗：{answeredQuestions}問/{totalQuestions}問
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 font-medium text-sm">回答状況</span>
+              <span className="text-blue-600 font-bold text-lg tabular-nums">
+                {answeredQuestions} / {totalQuestions} 問
               </span>
+            </div>
+            {/* プログレスバー */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0}%` }}
+              ></div>
             </div>
           </div>
         </div>
