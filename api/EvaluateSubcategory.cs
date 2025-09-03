@@ -605,9 +605,11 @@ namespace Company.Function
                 SELECT DISTINCT
                     o.[チェック項目],
                     sa.[対策評価_回答],
-                    o.[チェック項目番号]
+                    o.[チェック項目番号],
+                    so.[点数] as [score]
                 FROM [dbo].[SurveyOptions$] o
                 INNER JOIN [dbo].[Answers$] sa ON o.[チェック項目番号] = sa.[チェック項目番号]
+                LEFT JOIN [dbo].[SurveyOptions$] so ON so.[チェック項目番号] = sa.[チェック項目番号] AND so.[選択肢] = sa.[対策評価_回答]
                 WHERE sa.[回答者番号] = @RespondentId AND o.[中項目番号] = @SubcategoryId
                 ORDER BY o.[チェック項目番号]";
 
@@ -620,12 +622,21 @@ namespace Company.Function
                 using var reader = await questionsCmd.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
+                    // スコアを取得（NULL の場合は 0）
+                    var scoreValue = reader["score"];
+                    int score = 0;
+                    if (scoreValue != null && scoreValue != DBNull.Value)
+                    {
+                        int.TryParse(scoreValue.ToString(), out score);
+                    }
+
                     questions.Add(new
                     {
                         question_text = reader["チェック項目"]?.ToString() ?? "",
                         selected_option = new
                         {
-                            text = reader["対策評価_回答"]?.ToString() ?? ""
+                            text = reader["対策評価_回答"]?.ToString() ?? "",
+                            score = score
                         }
                     });
                 }
