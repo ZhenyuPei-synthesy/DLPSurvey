@@ -109,7 +109,7 @@ namespace Company.Function
                     {
                         _logger.LogInformation($"Background task STARTED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
                         Console.WriteLine($"[INFO] Background task STARTED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
-                        await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId);
+                        await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId, requestData.CurrentAnswers);
                         _logger.LogInformation($"Background task COMPLETED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
                         Console.WriteLine($"[INFO] Background task COMPLETED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
                     }
@@ -171,7 +171,7 @@ namespace Company.Function
                                         {
                                             _logger.LogInformation($"Background FALLBACK task STARTED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
                                             Console.WriteLine($"[INFO] Background FALLBACK task STARTED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
-                                            await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId);
+                                            await ProcessAIEvaluationAsync(requestData.RespondentId, requestData.SubcategoryId, requestData.CurrentAnswers);
                                             _logger.LogInformation($"Background FALLBACK task COMPLETED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
                                             Console.WriteLine($"[INFO] Background FALLBACK task COMPLETED for RespondentId={requestData.RespondentId}, SubcategoryId={requestData.SubcategoryId}");
                                         }
@@ -226,7 +226,7 @@ namespace Company.Function
             }
         }
 
-        private async Task ProcessAIEvaluationAsync(string respondentId, string subcategoryId)
+        private async Task ProcessAIEvaluationAsync(string respondentId, string subcategoryId, List<CurrentAnswer>? currentAnswers)
         {
             try
             {
@@ -281,7 +281,7 @@ namespace Company.Function
                 string evaluationData;
                 try
                 {
-                    evaluationData = await GetEvaluationDataAsync(respondentId, subcategoryId, connectionString);
+                    evaluationData = await BuildEvaluationDataFromAnswers(respondentId, subcategoryId, currentAnswers, connectionString);
                     _logger.LogInformation($"評価データ取得完了 (length: {evaluationData.Length})");
                     Console.WriteLine($"[INFO] 評価データ取得完了 (length: {evaluationData.Length})");
                 }
@@ -615,13 +615,13 @@ namespace Company.Function
             }
         }
 
-        private async Task<string> GetEvaluationDataAsync(string respondentId, string subcategoryId, string connectionString)
+        private async Task<string> BuildEvaluationDataFromAnswers(string respondentId, string subcategoryId, List<CurrentAnswer>? currentAnswers, string connectionString)
         {
             try
             {
                 using var connection = new SqlConnection(connectionString);
                 await connection.OpenAsync();
-                _logger.LogInformation($"Database connection opened for evaluation data retrieval: RespondentId={respondentId}, SubcategoryId={subcategoryId}");
+                _logger.LogInformation($"Database connection opened for evaluation data preparation: RespondentId={respondentId}, SubcategoryId={subcategoryId}");
 
                 // 1. 中項目の「あるべき姿」を取得
                 var idealStateSql = @"
@@ -638,64 +638,7 @@ namespace Company.Function
                     _logger.LogInformation($"Retrieved ideal state (length: {idealState.Length})");
                 }
 
-                // 2. ユーザーの自由記述コメントを取得
-                var commentSql = @"
-                    SELECT [コメント]
-                    FROM [dbo].[Answers$]
-                    WHERE [回答者番号] = @RespondentId AND [中項目番号] = @SubcategoryId AND [コメント] IS NOT NULL AND [コメント] != ''";
-
-                string userComment;
-                using (var commentCmd = new SqlCommand(commentSql, connection))
-                {
-                    commentCmd.Parameters.AddWithValue("@RespondentId", respondentId);
-                    commentCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
-                    var result = await commentCmd.ExecuteScalarAsync();
-                    userComment = result?.ToString() ?? "";
-                }
-
-                // 3. この中項目に属する質問と回答を取得
-                var questionsSql = @"
-                    SELECT DISTINCT
-                        o.[チェック項目],
-                        sa.[対策評価_回答],
-                        o.[チェック項目番号],
-                        so.[スコア] as [score]
-                    FROM [dbo].[SurveyOptions$] o
-                    INNER JOIN [dbo].[Answers$] sa ON o.[チェック項目番号] = sa.[チェック項目番号]
-                    LEFT JOIN [dbo].[SurveyOptions$] so ON so.[チェック項目番号] = sa.[チェック項目番号] AND so.[対策評価] = sa.[対策評価_回答]
-                    WHERE sa.[回答者番号] = @RespondentId AND o.[中項目番号] = @SubcategoryId
-                    ORDER BY o.[チェック項目番号]";
-
-                var questions = new List<object>();
-                using (var questionsCmd = new SqlCommand(questionsSql, connection))
-                {
-                    questionsCmd.Parameters.AddWithValue("@RespondentId", respondentId);
-                    questionsCmd.Parameters.AddWithValue("@SubcategoryId", subcategoryId);
-                    
-                    using var reader = await questionsCmd.ExecuteReaderAsync();
-                    while (await reader.ReadAsync())
-                    {
-                        // スコアを取得（NULL の場合は 0）
-                        var scoreValue = reader["score"];
-                        int score = 0;
-                        if (scoreValue != null && scoreValue != DBNull.Value)
-                        {
-                            int.TryParse(scoreValue.ToString(), out score);
-                        }
-
-                        questions.Add(new
-                        {
-                            question_text = reader["チェック項目"]?.ToString() ?? "",
-                            selected_option = new
-                            {
-                                text = reader["対策評価_回答"]?.ToString() ?? "",
-                                score = score
-                            }
-                        });
-                    }
-                }
-
-                // 4. 中項目名を取得
+                // 2. 中項目名を取得
                 var subcategoryNameSql = @"
                     SELECT [中項目]
                     FROM [dbo].[SurveyCategoryTemplate$]
@@ -709,7 +652,35 @@ namespace Company.Function
                     subcategoryName = result?.ToString() ?? $"中項目{subcategoryId}";
                 }
 
-                // JSONデータを構築
+                // 3. フロントエンドから受信した回答データを使用
+                var questions = new List<object>();
+                string userComment = "";
+
+                if (currentAnswers != null && currentAnswers.Count > 0)
+                {
+                    foreach (var answer in currentAnswers)
+                    {
+                        questions.Add(new
+                        {
+                            question_text = answer.QuestionText ?? "",
+                            selected_option = new
+                            {
+                                text = answer.SelectedAnswerText ?? "",
+                                score = answer.Score
+                            }
+                        });
+
+                        // コメントを統合（複数のコメントがある場合は改行で区切り）
+                        if (!string.IsNullOrEmpty(answer.Comment))
+                        {
+                            if (!string.IsNullOrEmpty(userComment))
+                                userComment += "\n";
+                            userComment += answer.Comment;
+                        }
+                    }
+                }
+
+                // 4. JSONデータを構築
                 var evaluationData = new
                 {
                     subcategory_name = subcategoryName,
@@ -723,15 +694,24 @@ namespace Company.Function
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error retrieving evaluation data: RespondentId={respondentId}, SubcategoryId={subcategoryId}, Error={ex.Message}");
-                throw new Exception($"評価データの取得に失敗: {ex.Message}", ex);
+                _logger.LogError(ex, $"Error building evaluation data: RespondentId={respondentId}, SubcategoryId={subcategoryId}, Error={ex.Message}");
+                throw new Exception($"評価データの構築に失敗: {ex.Message}", ex);
             }
+        }
+
+        public class CurrentAnswer
+        {
+            public string? QuestionText { get; set; }
+            public string? SelectedAnswerText { get; set; }
+            public int Score { get; set; }
+            public string? Comment { get; set; }
         }
 
         public class EvaluationRequest
         {
             public string? RespondentId { get; set; }
             public string? SubcategoryId { get; set; }
+            public List<CurrentAnswer>? CurrentAnswers { get; set; }
         }
     }
 }

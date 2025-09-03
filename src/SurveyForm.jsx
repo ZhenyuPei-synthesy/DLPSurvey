@@ -313,6 +313,31 @@ import { parseExcelDataToJson } from './parser.js';
       return;
     }
 
+    // 中項目の現在の回答データを収集
+    const currentAnswers = subcategory.items.map(item => {
+      const answer = answers[item.id];
+      let selectedAnswerText = '';
+      
+      if (answer && answer.score !== undefined) {
+        if (answer.score === 0) {
+          selectedAnswerText = '該当なし';
+        } else {
+          // スコアに対応する回答テキストを取得
+          const matchingOption = item.options?.find(opt => opt.score === answer.score);
+          selectedAnswerText = matchingOption ? matchingOption.text : answer.score.toString();
+        }
+      }
+
+      return {
+        questionText: item.question || '',
+        selectedAnswerText: selectedAnswerText,
+        score: answer?.score || 0,
+        comment: answer?.comment || ''
+      };
+    }).filter(item => item.selectedAnswerText !== ''); // 未回答の項目は除外
+
+    console.log('送信する回答データ:', currentAnswers);
+
     // AI評価状態を「評価中」に更新し、回答をロック
     setAiEvaluationStatus(prev => ({
       ...prev,
@@ -333,7 +358,8 @@ import { parseExcelDataToJson } from './parser.js';
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           respondentId: currentRespondentId,
-          subcategoryId: subcategoryId
+          subcategoryId: subcategoryId,
+          currentAnswers: currentAnswers
         }),
       });
 
