@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -24,6 +24,7 @@ ChartJS.register(
 const Report = ({ answers, surveyData }) => {
   const [aiEvaluations, setAiEvaluations] = useState({});
   const [loadingEvaluations, setLoadingEvaluations] = useState(true);
+  const [targetScores, setTargetScores] = useState({});
 
   // AI評価データを読み込む
   useEffect(() => {
@@ -72,6 +73,44 @@ const Report = ({ answers, surveyData }) => {
 
     if (surveyData.length > 0) {
       loadAiEvaluations();
+    }
+  }, [surveyData]);
+
+  // 目標スコアの初期化
+  useEffect(() => {
+    if (surveyData.length > 0) {
+      const initialTargetScores = {};
+      surveyData.forEach(category => {
+        console.log('Processing category:', category.category); // デバッグ用
+        // ここで各カテゴリの目標スコアを直接設定
+        switch(category.category) {
+          case '会社的・組織的管理':
+            initialTargetScores[category.category] = 5;
+            console.log('Set 会社的・組織的管理 to 5');
+            break;
+          case '人的管理':
+            initialTargetScores[category.category] = 4.2;
+            console.log('Set 人的管理 to 4.2');
+            break;
+          case '物理的管理':
+            initialTargetScores[category.category] = 3.5;
+            console.log('Set 物理的管理 to 3.5');
+            break;
+          case '技術的・IT管理':
+            initialTargetScores[category.category] = 3.5;
+            console.log('Set 技術的・IT管理 to 3.5');
+            break;
+          case 'サプライチェーン・外部連携管理':
+            initialTargetScores[category.category] = 4.2;
+            console.log('Set サプライチェーン・外部連携管理 to 4.2');
+            break;
+          default:
+            initialTargetScores[category.category] = 4.0;
+            console.log('Set default for', category.category, 'to 4.0');
+        }
+      });
+      setTargetScores(initialTargetScores);
+      console.log('Target scores initialized:', initialTargetScores);
     }
   }, [surveyData]);
   // PDFダウンロード機能
@@ -268,23 +307,43 @@ const Report = ({ answers, surveyData }) => {
   const subcategoryData = getSubcategoryComments();
   const detailData = getDetailedEvaluationData();
 
-  // レーダーチャートのデータ
-  const radarData = {
-    labels: Object.keys(categoryScores),
-    datasets: [
-      {
-        label: '平均スコア',
-        data: Object.values(categoryScores),
-        backgroundColor: 'rgba(59, 130, 246, 0.2)',
-        borderColor: 'rgba(59, 130, 246, 1)',
-        borderWidth: 2,
-        pointBackgroundColor: 'rgba(59, 130, 246, 1)',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: 'rgba(59, 130, 246, 1)',
-      },
-    ],
-  };
+  // レーダーチャートのデータ - useMemoでtargetScoresの変更を確実に反映
+  const radarData = useMemo(() => {
+    console.log('Regenerating radar chart data with targetScores:', targetScores);
+    
+    return {
+      labels: Object.keys(categoryScores),
+      datasets: [
+        {
+          label: '平均スコア',
+          data: Object.values(categoryScores),
+          backgroundColor: 'rgba(59, 130, 246, 0.2)',
+          borderColor: 'rgba(59, 130, 246, 1)',
+          borderWidth: 2,
+          pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: 'rgba(59, 130, 246, 1)',
+        },
+        {
+          label: '目標スコア（当社推奨）',
+          data: Object.keys(categoryScores).map(category => {
+            const targetScore = targetScores[category] || 3.5;
+            console.log(`Radar chart - Category: "${category}", Target score: ${targetScore}`);
+            return targetScore;
+          }),
+          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+          borderColor: 'rgba(34, 197, 94, 1)',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointBackgroundColor: 'rgba(34, 197, 94, 1)',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: 'rgba(34, 197, 94, 1)',
+        },
+      ],
+    };
+  }, [categoryScores, targetScores]); // targetScoresとcategoryScoresを依存関係に追加
 
   const radarOptions = {
     responsive: true,
@@ -371,32 +430,31 @@ const Report = ({ answers, surveyData }) => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-2xl font-bold text-center mb-6">評価結果レポート</h2>
           
-          <div className="flex justify-center mb-4">
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-blue-500 mr-2"></div>
-              <span className="text-sm text-slate-600">平均スコア</span>
-            </div>
-          </div>
-
           <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
             {/* レーダーチャート */}
             <div className="w-full max-w-md h-96">
-              <Radar data={radarData} options={radarOptions} />
+              <Radar 
+                data={radarData} 
+                options={radarOptions} 
+              />
             </div>
 
             {/* 大項目別平均スコア */}
-            <div className="w-full lg:w-80">
-              <h3 className="text-xl font-bold mb-4">大項目別 平均スコア</h3>
+            <div className="w-full lg:w-96">
+              <h3 className="text-lg font-bold mb-4 whitespace-nowrap">大項目別 平均スコア ／ 目標スコア（当社推奨）</h3>
               <div className="space-y-3">
                 {Object.entries(categoryScores).map(([category, score]) => (
                   <div key={category} className="flex justify-between items-center">
-                    <span className="text-slate-700">{category}</span>
-                    <span className={`font-bold text-lg ${
-                      parseFloat(score) >= 4 ? 'text-green-600' : 
-                      parseFloat(score) >= 2 ? 'text-yellow-600' : 'text-red-600'
-                    }`}>
-                      {score}
-                    </span>
+                    <span className="text-slate-700 text-sm">{category}</span>
+                    <div className="flex items-center space-x-3">
+                      <span className="font-bold text-lg text-blue-600">
+                        {score}
+                      </span>
+                      <span className="text-lg text-slate-500 font-medium">／</span>
+                      <span className="text-lg text-green-600 font-bold">
+                        {targetScores[category] || 3.5}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
