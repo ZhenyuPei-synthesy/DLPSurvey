@@ -119,7 +119,7 @@ export const parseExcelDataToJson = (data) => {
         });
         // 必要ならリスクを最新値で更新（ファイル上は同一なので任意）
         if (!existingItem.risk && row.Risk) existingItem.risk = row.Risk;
-        if (!existingItem.relatedRegulations && row.RelatedRegulations) existingItem.relatedRegulations = row.RelatedRegulations;
+        if (!existingItem.relatedRegulations && row.RelatedLaw) existingItem.relatedRegulations = row.RelatedLaw;
       } else {
         subcategory.items.push({
           id: `check-item-${itemId++}`,
@@ -127,7 +127,7 @@ export const parseExcelDataToJson = (data) => {
           chuItemNumber: row.ChuItemNumber || '', // 中項目番号を追加
           question: questionText, // "question"というキー名で質問文をセット
           risk: row.Risk,
-          relatedRegulations: row.RelatedRegulations,
+          relatedRegulations: row.RelatedLaw,
           options: parsedOptions
         });
       }
@@ -139,7 +139,7 @@ export const parseExcelDataToJson = (data) => {
         questionNumber: row.QuestionNumber || '', // 質問番号を追加
         question: row.CheckItem || '（質問文なし）',
         risk: row.Risk || '',
-        relatedRegulations: row.RelatedRegulations || '',
+        relatedRegulations: row.RelatedLaw || '',
         options: []
       });
     }

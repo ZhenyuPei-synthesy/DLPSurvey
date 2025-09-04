@@ -81,36 +81,28 @@ const Report = ({ answers, surveyData }) => {
     if (surveyData.length > 0) {
       const initialTargetScores = {};
       surveyData.forEach(category => {
-        console.log('Processing category:', category.category); // デバッグ用
         // ここで各カテゴリの目標スコアを直接設定
         switch(category.category) {
-          case '会社的・組織的管理':
-            initialTargetScores[category.category] = 5;
-            console.log('Set 会社的・組織的管理 to 5');
+          case '1. 全社的・組織的管理':
+            initialTargetScores[category.category] = 3.7;
             break;
-          case '人的管理':
-            initialTargetScores[category.category] = 4.2;
-            console.log('Set 人的管理 to 4.2');
-            break;
-          case '物理的管理':
+          case '2. 人的管理':
             initialTargetScores[category.category] = 3.5;
-            console.log('Set 物理的管理 to 3.5');
             break;
-          case '技術的・IT管理':
+          case '3. 物理的管理':
             initialTargetScores[category.category] = 3.5;
-            console.log('Set 技術的・IT管理 to 3.5');
             break;
-          case 'サプライチェーン・外部連携管理':
-            initialTargetScores[category.category] = 4.2;
-            console.log('Set サプライチェーン・外部連携管理 to 4.2');
+          case '4. 技術的・IT管理':
+            initialTargetScores[category.category] = 3.5;
+            break;
+          case '5. サプライチェーン・外部連携管理':
+            initialTargetScores[category.category] = 3.6;
             break;
           default:
-            initialTargetScores[category.category] = 4.0;
-            console.log('Set default for', category.category, 'to 4.0');
+            initialTargetScores[category.category] = 3.4;
         }
       });
       setTargetScores(initialTargetScores);
-      console.log('Target scores initialized:', initialTargetScores);
     }
   }, [surveyData]);
   // PDFダウンロード機能
@@ -288,13 +280,14 @@ const Report = ({ answers, surveyData }) => {
       category.subcategories.forEach(subcategory => {
         subcategory.items.forEach(item => {
           const answer = answers[item.id];
+          
           detailData.push({
             id: item.id,
             question: item.question,
             score: answer?.score || '未評価',
             comment: answer?.comment || '-',
             risk: item.risk || '-',
-            relatedRegulations: item.relatedRegulations || '-'
+            relatedLaw: item.relatedRegulations || '-'
           });
         });
       });
@@ -309,8 +302,6 @@ const Report = ({ answers, surveyData }) => {
 
   // レーダーチャートのデータ - useMemoでtargetScoresの変更を確実に反映
   const radarData = useMemo(() => {
-    console.log('Regenerating radar chart data with targetScores:', targetScores);
-    
     return {
       labels: Object.keys(categoryScores),
       datasets: [
@@ -329,7 +320,6 @@ const Report = ({ answers, surveyData }) => {
           label: '目標スコア（当社推奨）',
           data: Object.keys(categoryScores).map(category => {
             const targetScore = targetScores[category] || 3.5;
-            console.log(`Radar chart - Category: "${category}", Target score: ${targetScore}`);
             return targetScore;
           }),
           backgroundColor: 'rgba(34, 197, 94, 0.1)',
@@ -561,13 +551,13 @@ const Report = ({ answers, surveyData }) => {
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '6ch'}}>
                     評価点
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '20%'}}>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '15%'}}>
                     コメント
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '20%'}}>
                     リスク
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '15%'}}>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '20%'}}>
                     関連法規
                   </th>
                 </tr>
@@ -599,7 +589,7 @@ const Report = ({ answers, surveyData }) => {
                       {item.risk}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900" style={{wordWrap: 'break-word', maxWidth: '100px'}}>
-                      {item.relatedRegulations}
+                      {item.relatedLaw}
                     </td>
                   </tr>
                 ))}
