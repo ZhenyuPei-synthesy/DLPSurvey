@@ -25,6 +25,15 @@ const Report = ({ answers, surveyData }) => {
   const [aiEvaluations, setAiEvaluations] = useState({});
   const [loadingEvaluations, setLoadingEvaluations] = useState(true);
   const [targetScores, setTargetScores] = useState({});
+  const [showRespondentForm, setShowRespondentForm] = useState(false);
+  const [respondentInfo, setRespondentInfo] = useState({
+    company: '',
+    department: '',
+    jobTitle: '',
+    name: '',
+    email: '',
+    phone: ''
+  });
 
   // AI評価データを読み込む
   useEffect(() => {
@@ -105,11 +114,11 @@ const Report = ({ answers, surveyData }) => {
       setTargetScores(initialTargetScores);
     }
   }, [surveyData]);
-  // PDFダウンロード機能
-  const downloadPDF = async () => {
+  // ダウンロード処理を実行する関数（元のdownloadPDF）
+  const executeDownload = async () => {
     try {
-      // 企業名を取得（sessionStorageから）
-      const companyName = sessionStorage.getItem('companyName') || '企業名未設定';
+      // 企業名を取得（respondentInfoから、なければデフォルト値）
+      const companyName = respondentInfo.company || '企業名未設定';
       
       // すべてのダウンロードボタンを一時的に隠す
       const downloadBtns = document.querySelectorAll('.download-btn');
@@ -207,6 +216,107 @@ const Report = ({ answers, surveyData }) => {
       // エラー時もボタンを再表示
       const downloadBtns = document.querySelectorAll('.download-btn');
       downloadBtns.forEach(btn => btn.style.display = 'inline-flex');
+    }
+  };
+
+  // ダウンロードボタンがクリックされた時の処理
+  const handleDownloadClick = () => {
+    setShowRespondentForm(true);
+  };
+
+  // 回答者情報の入力値を更新
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setRespondentInfo(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // キャンセルボタンの処理
+  const handleCancel = () => {
+    setShowRespondentForm(false);
+    setRespondentInfo({
+      company: '',
+      department: '',
+      jobTitle: '',
+      name: '',
+      email: '',
+      phone: ''
+    });
+  };
+
+  // 登録してダウンロードボタンの処理
+  const handleRegisterAndDownload = async () => {
+    // 必須項目のバリデーション
+    if (!respondentInfo.company.trim()) {
+      alert('会社名は必須項目です。');
+      return;
+    }
+    if (!respondentInfo.name.trim()) {
+      alert('氏名は必須項目です。');
+      return;
+    }
+
+    try {
+      // RespondentIdを取得
+      const storedRespondentId = sessionStorage.getItem('respondentId');
+      if (!storedRespondentId) {
+        alert('回答者IDが見つかりません。再度アンケートを開始してください。');
+        return;
+      }
+
+      // ポップアップを先に閉じてユーザーエクスペリエンスを向上
+      setShowRespondentForm(false);
+
+      // Respondentテーブルの更新とダウンロード処理を並行実行
+      const apiUrl = import.meta.env.MODE === 'development' 
+        ? '/api/CreateRespondent'
+        : (import.meta.env.VITE_CREATE_RESPONDENT_API_URL || '/api/CreateRespondent');
+
+      const respondentData = {
+        respondentId: storedRespondentId,
+        company: respondentInfo.company.trim(),
+        department: respondentInfo.department.trim() || null,
+        jobTitle: respondentInfo.jobTitle.trim() || null,
+        name: respondentInfo.name.trim(),
+        email: respondentInfo.email.trim() || null,
+        phone: respondentInfo.phone.trim() || null
+      };
+
+      // API保存とダウンロード処理を並行実行
+      const saveRespondentPromise = fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(respondentData)
+      });
+
+      const downloadPromise = executeDownload();
+
+      // 両方の処理を並行実行し、API保存の結果をチェック
+      const [saveResponse] = await Promise.allSettled([saveRespondentPromise, downloadPromise]);
+      
+      // API保存の結果をログに出力（ダウンロードには影響しない）
+      if (saveResponse.status === 'fulfilled') {
+        if (saveResponse.value.ok) {
+          const result = await saveResponse.value.json();
+          if (result.success) {
+            console.log('回答者情報を正常に保存しました:', respondentData);
+          } else {
+            console.warn('回答者情報の保存に失敗しましたが、ダウンロードは実行されました:', result.message);
+          }
+        } else {
+          console.warn(`回答者情報の保存でHTTPエラーが発生しましたが、ダウンロードは実行されました: ${saveResponse.value.status}`);
+        }
+      } else {
+        console.warn('回答者情報の保存中にエラーが発生しましたが、ダウンロードは実行されました:', saveResponse.reason);
+      }
+
+    } catch (error) {
+      console.error('回答者情報の保存中にエラーが発生しました:', error);
+      alert('回答者情報の保存中にエラーが発生しました。もう一度お試しください。');
     }
   };
   // カテゴリごとの平均スコアを計算
@@ -400,11 +510,138 @@ const Report = ({ answers, surveyData }) => {
           padding: 0 8px;
         }
       `}</style>
+      
+      {/* 回答者情報入力ポップアップ */}
+      {showRespondentForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800">回答者情報入力</h2>
+              <p className="text-sm text-gray-600 mb-6">
+                レポートをダウンロードする前に、以下の情報をご入力ください。
+              </p>
+              
+              <div className="space-y-4">
+                {/* 会社名（必須） */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    会社名 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="company"
+                    value={respondentInfo.company}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="株式会社○○○"
+                    required
+                  />
+                </div>
+
+                {/* 部署名（任意） */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    部署名
+                  </label>
+                  <input
+                    type="text"
+                    name="department"
+                    value={respondentInfo.department}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="情報システム部"
+                  />
+                </div>
+
+                {/* 役職（任意） */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    役職
+                  </label>
+                  <input
+                    type="text"
+                    name="jobTitle"
+                    value={respondentInfo.jobTitle}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="部長"
+                  />
+                </div>
+
+                {/* 氏名（必須） */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    氏名 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={respondentInfo.name}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="山田 太郎"
+                    required
+                  />
+                </div>
+
+                {/* メールアドレス（任意） */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    メールアドレス
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={respondentInfo.email}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="example@company.com"
+                  />
+                </div>
+
+                {/* 電話番号（任意） */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    電話番号
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={respondentInfo.phone}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="03-1234-5678"
+                  />
+                </div>
+              </div>
+
+              {/* ボタン */}
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRegisterAndDownload}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  登録してダウンロード
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         {/* PDFダウンロードボタン */}
         <div className="text-center mb-6">
           <button
-            onClick={downloadPDF}
+            onClick={handleDownloadClick}
             className="download-btn inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -601,7 +838,7 @@ const Report = ({ answers, surveyData }) => {
         {/* 戻るボタン */}
         <div className="text-center mt-8">
           <button
-            onClick={downloadPDF}
+            onClick={handleDownloadClick}
             className="download-btn inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

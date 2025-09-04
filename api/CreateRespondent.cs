@@ -56,6 +56,7 @@ namespace Company.Function
                 var safeBody = body ?? "{}";
                 dynamic data = JsonConvert.DeserializeObject(safeBody);
 
+                var respondentId = (string)(data?.respondentId ?? string.Empty);
                 var company = (string)(data?.company ?? string.Empty);
                 var department = (string)(data?.department ?? string.Empty);
                 var jobTitle = (string)(data?.jobTitle ?? string.Empty);
@@ -63,8 +64,8 @@ namespace Company.Function
                 var email = (string)(data?.email ?? string.Empty);
                 var phone = (string)(data?.phone ?? string.Empty);
 
-                _logger.LogInformation("Parsed fields - company:{company}, department:{department}, jobTitle:{jobTitle}, name:{name}, email:{email}, phone:{phone}",
-                    company, department, jobTitle, name, email, phone);
+                _logger.LogInformation("Parsed fields - respondentId:{respondentId}, company:{company}, department:{department}, jobTitle:{jobTitle}, name:{name}, email:{email}, phone:{phone}",
+                    respondentId, company, department, jobTitle, name, email, phone);
 
                 var connectionString = Environment.GetEnvironmentVariable("SqlDbConnection", EnvironmentVariableTarget.Process);
                 _logger.LogInformation("SqlDbConnection present: {present}", !string.IsNullOrEmpty(connectionString));
@@ -81,7 +82,58 @@ namespace Company.Function
                     await conn.OpenAsync();
                     _logger.LogInformation("SQL connection opened");
 
-                    var sql = @"
+                    // Check if respondentId is provided for update
+                    if (!string.IsNullOrEmpty(respondentId))
+                    {
+                        // Update existing respondent
+                        var updateSql = @"
+UPDATE [dbo].[Respondent$] 
+SET [企業名] = @company,
+    [部署名] = @department,
+    [役職名] = @jobTitle,
+    [氏名] = @name,
+    [メールアドレス] = @email,
+    [電話番号] = @phone,
+    [回答時刻] = @answerTime
+WHERE [回答者番号] = @respondentId;
+";
+                        var updateCmd = new SqlCommand(updateSql, conn);
+                        updateCmd.Parameters.AddWithValue("@respondentId", respondentId);
+                        updateCmd.Parameters.AddWithValue("@company", string.IsNullOrEmpty(company) ? (object)DBNull.Value : company);
+                        updateCmd.Parameters.AddWithValue("@department", string.IsNullOrEmpty(department) ? (object)DBNull.Value : department);
+                        updateCmd.Parameters.AddWithValue("@jobTitle", string.IsNullOrEmpty(jobTitle) ? (object)DBNull.Value : jobTitle);
+                        updateCmd.Parameters.AddWithValue("@name", string.IsNullOrEmpty(name) ? (object)DBNull.Value : name);
+                        updateCmd.Parameters.AddWithValue("@email", string.IsNullOrEmpty(email) ? (object)DBNull.Value : email);
+                        updateCmd.Parameters.AddWithValue("@phone", string.IsNullOrEmpty(phone) ? (object)DBNull.Value : phone);
+                        updateCmd.Parameters.AddWithValue("@answerTime", GetJapanNow());
+
+                        _logger.LogInformation("Executing UPDATE SQL: {sql}", updateSql);
+                        foreach (SqlParameter p in updateCmd.Parameters)
+                        {
+                            _logger.LogInformation("Param {name} = {value}", p.ParameterName, p.Value == DBNull.Value ? "<DBNULL>" : p.Value);
+                        }
+
+                        var rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+                        _logger.LogInformation("UPDATE executed, rows affected: {rows}", rowsAffected);
+
+                        if (rowsAffected > 0)
+                        {
+                            response.StatusCode = HttpStatusCode.OK;
+                            await response.WriteAsJsonAsync(new { success = true, respondentId = respondentId, updated = true });
+                            return response;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("No rows updated for respondentId: {respondentId}", respondentId);
+                            response.StatusCode = HttpStatusCode.NotFound;
+                            await response.WriteAsJsonAsync(new { success = false, error = "Respondent not found for update" });
+                            return response;
+                        }
+                    }
+                    else
+                    {
+                        // Insert new respondent (original logic)
+                        var sql = @"
 SET XACT_ABORT ON;
 BEGIN TRAN;
 DECLARE @next BIGINT;
@@ -96,49 +148,50 @@ VALUES (@next,@company,@department,@jobTitle,@name,@email,@phone,@created,@answe
 COMMIT;
 SELECT @next;
 ";
-                    var cmd = new SqlCommand(sql, conn);
+                        var cmd = new SqlCommand(sql, conn);
 
-                    // generate answer number with 'SY' prefix + 12 digit random number
-                    string answerNumber;
-                    try
-                    {
-                        var buffer = new byte[8];
-                        System.Security.Cryptography.RandomNumberGenerator.Fill(buffer);
-                        ulong rnd = BitConverter.ToUInt64(buffer, 0);
-                        var val = rnd % 1000000000000UL; // 12 digits
-                        answerNumber = "SY" + val.ToString("D12");
+                        // generate answer number with 'SY' prefix + 12 digit random number
+                        string answerNumber;
+                        try
+                        {
+                            var buffer = new byte[8];
+                            System.Security.Cryptography.RandomNumberGenerator.Fill(buffer);
+                            ulong rnd = BitConverter.ToUInt64(buffer, 0);
+                            var val = rnd % 1000000000000UL; // 12 digits
+                            answerNumber = "SY" + val.ToString("D12");
+                        }
+                        catch
+                        {
+                            var rnd = new Random();
+                            answerNumber = "SY" + (rnd.Next(0, 1000000).ToString("D6") + rnd.Next(0, 1000000).ToString("D6"));
+                        }
+
+                        cmd.Parameters.AddWithValue("@company", string.IsNullOrEmpty(company) ? (object)DBNull.Value : company);
+                        cmd.Parameters.AddWithValue("@department", string.IsNullOrEmpty(department) ? (object)DBNull.Value : department);
+                        cmd.Parameters.AddWithValue("@jobTitle", string.IsNullOrEmpty(jobTitle) ? (object)DBNull.Value : jobTitle);
+                        cmd.Parameters.AddWithValue("@name", string.IsNullOrEmpty(name) ? (object)DBNull.Value : name);
+                        cmd.Parameters.AddWithValue("@email", string.IsNullOrEmpty(email) ? (object)DBNull.Value : email);
+                        cmd.Parameters.AddWithValue("@phone", string.IsNullOrEmpty(phone) ? (object)DBNull.Value : phone);
+                        // insert current Japan time for creation, answer time and mark status as '回答中'
+                        var japanNow = GetJapanNow();
+                        cmd.Parameters.AddWithValue("@created", japanNow);
+                        cmd.Parameters.AddWithValue("@answerTime", japanNow);
+                        cmd.Parameters.AddWithValue("@answerNumber", string.IsNullOrEmpty(answerNumber) ? (object)DBNull.Value : answerNumber);
+                        cmd.Parameters.AddWithValue("@status", "回答中");
+
+                        _logger.LogInformation("Executing INSERT SQL: {sql}", sql);
+                        foreach (SqlParameter p in cmd.Parameters)
+                        {
+                            _logger.LogInformation("Param {name} = {value}", p.ParameterName, p.Value == DBNull.Value ? "<DBNULL>" : p.Value);
+                        }
+
+                        var insertedNext = await cmd.ExecuteScalarAsync();
+                        _logger.LogInformation("INSERT executed, next id: {val}", insertedNext ?? "(null)");
+
+                        response.StatusCode = HttpStatusCode.OK;
+                        await response.WriteAsJsonAsync(new { success = true, respondentId = insertedNext, answerNumber = answerNumber });
+                        return response;
                     }
-                    catch
-                    {
-                        var rnd = new Random();
-                        answerNumber = "SY" + (rnd.Next(0, 1000000).ToString("D6") + rnd.Next(0, 1000000).ToString("D6"));
-                    }
-
-                    cmd.Parameters.AddWithValue("@company", string.IsNullOrEmpty(company) ? (object)DBNull.Value : company);
-                    cmd.Parameters.AddWithValue("@department", string.IsNullOrEmpty(department) ? (object)DBNull.Value : department);
-                    cmd.Parameters.AddWithValue("@jobTitle", string.IsNullOrEmpty(jobTitle) ? (object)DBNull.Value : jobTitle);
-                    cmd.Parameters.AddWithValue("@name", string.IsNullOrEmpty(name) ? (object)DBNull.Value : name);
-                    cmd.Parameters.AddWithValue("@email", string.IsNullOrEmpty(email) ? (object)DBNull.Value : email);
-                    cmd.Parameters.AddWithValue("@phone", string.IsNullOrEmpty(phone) ? (object)DBNull.Value : phone);
-                    // insert current Japan time for creation, answer time and mark status as '回答中'
-                    var japanNow = GetJapanNow();
-                    cmd.Parameters.AddWithValue("@created", japanNow);
-                    cmd.Parameters.AddWithValue("@answerTime", japanNow);
-                    cmd.Parameters.AddWithValue("@answerNumber", string.IsNullOrEmpty(answerNumber) ? (object)DBNull.Value : answerNumber);
-                    cmd.Parameters.AddWithValue("@status", "回答中");
-
-                    _logger.LogInformation("Executing SQL: {sql}", sql);
-                    foreach (SqlParameter p in cmd.Parameters)
-                    {
-                        _logger.LogInformation("Param {name} = {value}", p.ParameterName, p.Value == DBNull.Value ? "<DBNULL>" : p.Value);
-                    }
-
-                    var insertedNext = await cmd.ExecuteScalarAsync();
-                    _logger.LogInformation("SQL executed, next id: {val}", insertedNext ?? "(null)");
-
-                    response.StatusCode = HttpStatusCode.OK;
-                    await response.WriteAsJsonAsync(new { success = true, respondentId = insertedNext, answerNumber = answerNumber });
-                    return response;
                 }
             }
             catch (SqlException sqlEx)
