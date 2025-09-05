@@ -83,22 +83,16 @@ const Welcome = ({ onNext }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('handleSubmit called'); // デバッグログ
     setIsSubmitting(true);
     setError(null);
 
-    // client-side validation for required fields
+    // 免責事項の同意確認のみ
     const errors = {};
-    if (!form.company || form.company.trim() === '') errors.company = '企業名は必須です。';
-    if (!form.name || form.name.trim() === '') errors.name = '氏名は必須です。';
-    if (!form.email || form.email.trim() === '') {
-      errors.email = 'メールアドレスは必須です。';
-    } else {
-      const emailRe = /^\S+@\S+\.\S+$/;
-      if (!emailRe.test(form.email)) errors.email = '正しいメールアドレスを入力してください。';
-    }
     if (!agreedToTerms) errors.terms = '免責事項とプライバシーポリシーへの同意が必要です。';
 
     if (Object.keys(errors).length > 0) {
+      console.log('Validation errors:', errors); // デバッグログ
       setFieldErrors(errors);
       setIsSubmitting(false);
       return;
@@ -106,52 +100,54 @@ const Welcome = ({ onNext }) => {
 
     // apiUrl will always be defined now (fallback to same-origin), but still validate
     if (!apiUrl) {
+      console.log('API URL not configured'); // デバッグログ
       setError('送信先APIが設定されていません。環境変数を確認してください。');
       setIsSubmitting(false);
       return;
     }
 
     try {
+      console.log('Making API request to:', apiUrl); // デバッグログ
+      // 空のオブジェクトを送信（APIで回答者番号ベースの値を自動設定）
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          company: form.company,
-          department: form.department,
-          jobTitle: form.jobTitle,
-          name: form.name,
-          email: form.email,
-          phone: form.phone
+          // 空のオブジェクト - APIで自動値生成
         })
       });
 
+      console.log('API response status:', res.status); // デバッグログ
+
       if (!res.ok) {
         const text = await res.text();
+        console.log('API error response:', text); // デバッグログ
         throw new Error(`APIエラー: ${res.status} ${text}`);
       }
 
       const json = await res.json();
+      console.log('API response data:', json); // デバッグログ
+      
       const respondentId = json.respondentId || json.id || null;
       const answerNumber = json.answerNumber || null;
       
       // セッションストレージに回答者番号を保存
       if (respondentId) {
         sessionStorage.setItem('respondentId', respondentId.toString());
-      }
-      // store companyName, answerNumber and email for resume/report
-      if (form.company) {
-        sessionStorage.setItem('companyName', form.company);
+        // 回答者番号ベースの値を保存
+        sessionStorage.setItem('companyName', respondentId.toString());
+        sessionStorage.setItem('respondentEmail', `${respondentId}@.tmp.co.jp`);
+        console.log('Stored respondentId:', respondentId); // デバッグログ
       }
       if (answerNumber) {
         sessionStorage.setItem('answerNumber', answerNumber.toString());
-      }
-      if (form.email) {
-        sessionStorage.setItem('respondentEmail', form.email);
+        console.log('Stored answerNumber:', answerNumber); // デバッグログ
       }
       
+      console.log('Calling onNext with respondentId:', respondentId); // デバッグログ
       onNext(respondentId);
     } catch (err) {
-      console.error(err);
+      console.error('Submit error:', err);
       setError(err.message || '送信中にエラーが発生しました');
     } finally {
       setIsSubmitting(false);
@@ -358,12 +354,20 @@ const Welcome = ({ onNext }) => {
         </div>
 
   <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-medium mb-4">回答者情報</h3>
+          <h3 className="text-lg font-medium mb-4">アセスメント開始</h3>
+          
+          <div className="mb-6">
+            <p className="text-slate-600 text-sm mb-4">
+              「次へ」ボタンを押してアセスメントを開始してください。回答者番号が自動で発行されます。
+            </p>
+          </div>
+
           <form onSubmit={handleSubmit}>
-            <div className="space-y-3">
+            {/* 入力フォームを非表示 */}
+            <div className="space-y-3" style={{display: 'none'}}>
               <div>
                 <label className="block text-sm text-slate-600">会社名 <span className="text-red-600">*</span></label>
-                <input name="company" aria-required="true" required value={form.company} onChange={handleChange} className="mt-1 w-full p-2 border rounded" />
+                <input name="company" aria-required="true" value={form.company} onChange={handleChange} className="mt-1 w-full p-2 border rounded" />
                 {fieldErrors.company && (
                   <p className="mt-1 text-sm text-red-600">{fieldErrors.company}</p>
                 )}
@@ -378,14 +382,14 @@ const Welcome = ({ onNext }) => {
               </div>
               <div>
                 <label className="block text-sm text-slate-600">氏名 <span className="text-red-600">*</span></label>
-                <input name="name" aria-required="true" required value={form.name} onChange={handleChange} className="mt-1 w-full p-2 border rounded" />
+                <input name="name" aria-required="true" value={form.name} onChange={handleChange} className="mt-1 w-full p-2 border rounded" />
                 {fieldErrors.name && (
                   <p className="mt-1 text-sm text-red-600">{fieldErrors.name}</p>
                 )}
               </div>
               <div>
                 <label className="block text-sm text-slate-600">メールアドレス <span className="text-red-600">*</span></label>
-                <input type="email" name="email" aria-required="true" required value={form.email} onChange={handleChange} className="mt-1 w-full p-2 border rounded" />
+                <input type="email" name="email" aria-required="true" value={form.email} onChange={handleChange} className="mt-1 w-full p-2 border rounded" />
                 {fieldErrors.email && (
                   <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
                 )}
@@ -397,7 +401,7 @@ const Welcome = ({ onNext }) => {
             </div>
 
             {/* 免責事項・プライバシーポリシーの同意 */}
-            <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="mb-6 pt-4 border-t border-gray-200">
               <label className="flex items-start space-x-3">
                 <input
                   type="checkbox"
@@ -427,9 +431,9 @@ const Welcome = ({ onNext }) => {
               )}
             </div>
 
-            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
-            <div className="mt-4 text-right">
+            <div className="text-right">
               <button 
                 type="submit" 
                 disabled={isSubmitting || !agreedToTerms} 
@@ -439,7 +443,7 @@ const Welcome = ({ onNext }) => {
                     : 'bg-blue-600 hover:bg-blue-700'
                 } text-white`}
               >
-                {isSubmitting ? '送信中...' : '次へ'}
+                {isSubmitting ? '処理中...' : '次へ'}
               </button>
             </div>
           </form>

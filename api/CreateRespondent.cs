@@ -132,24 +132,6 @@ WHERE [回答者番号] = @respondentId;
                     }
                     else
                     {
-                        // Insert new respondent (original logic)
-                        var sql = @"
-SET XACT_ABORT ON;
-BEGIN TRAN;
-DECLARE @next BIGINT;
--- compute next sequential id with exclusive table lock to avoid races
-SELECT @next = ISNULL(MAX(TRY_CAST([回答者番号] AS BIGINT)), 0) + 1
-FROM [dbo].[Respondent$] WITH (TABLOCKX, HOLDLOCK);
-
--- insert sequential respondent number into [回答者番号] and answer number into [回答番号]
-INSERT INTO [dbo].[Respondent$] ([回答者番号],[企業名],[部署名],[役職名],[氏名],[メールアドレス],[電話番号],[作成日時],[回答時刻],[回答番号],[回答ステータス])
-VALUES (@next,@company,@department,@jobTitle,@name,@email,@phone,@created,@answerTime,@answerNumber,@status);
-
-COMMIT;
-SELECT @next;
-";
-                        var cmd = new SqlCommand(sql, conn);
-
                         // generate answer number with 'SY' prefix + 12 digit random number
                         string answerNumber;
                         try
@@ -166,11 +148,32 @@ SELECT @next;
                             answerNumber = "SY" + (rnd.Next(0, 1000000).ToString("D6") + rnd.Next(0, 1000000).ToString("D6"));
                         }
 
-                        cmd.Parameters.AddWithValue("@company", string.IsNullOrEmpty(company) ? (object)DBNull.Value : company);
+                        // Insert new respondent with auto-generated values based on respondent ID
+                        // Use a transaction to get next ID and insert in one operation
+                        var sql = @"
+SET XACT_ABORT ON;
+BEGIN TRAN;
+DECLARE @next BIGINT;
+DECLARE @nextStr NVARCHAR(50);
+-- compute next sequential id with exclusive table lock to avoid races
+SELECT @next = ISNULL(MAX(TRY_CAST([回答者番号] AS BIGINT)), 0) + 1
+FROM [dbo].[Respondent$] WITH (TABLOCKX, HOLDLOCK);
+
+-- convert to string for use in company, name, and email
+SET @nextStr = CAST(@next AS NVARCHAR(50));
+
+-- insert sequential respondent number and auto-generated values
+INSERT INTO [dbo].[Respondent$] ([回答者番号],[企業名],[部署名],[役職名],[氏名],[メールアドレス],[電話番号],[作成日時],[回答時刻],[回答番号],[回答ステータス])
+VALUES (@next, @nextStr, @department, @jobTitle, @nextStr, @nextStr + '@.tmp.co.jp', @phone, @created, @answerTime, @answerNumber, @status);
+
+COMMIT;
+SELECT @next;
+";
+                        var cmd = new SqlCommand(sql, conn);
+
+                        // Set parameters - only the ones we pass from C#
                         cmd.Parameters.AddWithValue("@department", string.IsNullOrEmpty(department) ? (object)DBNull.Value : department);
                         cmd.Parameters.AddWithValue("@jobTitle", string.IsNullOrEmpty(jobTitle) ? (object)DBNull.Value : jobTitle);
-                        cmd.Parameters.AddWithValue("@name", string.IsNullOrEmpty(name) ? (object)DBNull.Value : name);
-                        cmd.Parameters.AddWithValue("@email", string.IsNullOrEmpty(email) ? (object)DBNull.Value : email);
                         cmd.Parameters.AddWithValue("@phone", string.IsNullOrEmpty(phone) ? (object)DBNull.Value : phone);
                         // insert current Japan time for creation, answer time and mark status as '回答中'
                         var japanNow = GetJapanNow();
@@ -185,11 +188,12 @@ SELECT @next;
                             _logger.LogInformation("Param {name} = {value}", p.ParameterName, p.Value == DBNull.Value ? "<DBNULL>" : p.Value);
                         }
 
-                        var insertedNext = await cmd.ExecuteScalarAsync();
-                        _logger.LogInformation("INSERT executed, next id: {val}", insertedNext ?? "(null)");
+                        var result = await cmd.ExecuteScalarAsync();
+                        var newRespondentId = result?.ToString() ?? "1";
+                        _logger.LogInformation("INSERT executed successfully, respondent ID: {val}", newRespondentId);
 
                         response.StatusCode = HttpStatusCode.OK;
-                        await response.WriteAsJsonAsync(new { success = true, respondentId = insertedNext, answerNumber = answerNumber });
+                        await response.WriteAsJsonAsync(new { success = true, respondentId = newRespondentId, answerNumber = answerNumber });
                         return response;
                     }
                 }
