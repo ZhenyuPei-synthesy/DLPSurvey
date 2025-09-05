@@ -32,7 +32,9 @@ const Report = ({ answers, surveyData }) => {
     jobTitle: '',
     name: '',
     email: '',
-    phone: ''
+    phone: '',
+    expertConsultation: '',
+    benchmarkReport: ''
   });
 
   // AI評価データを読み込む
@@ -242,7 +244,9 @@ const Report = ({ answers, surveyData }) => {
       jobTitle: '',
       name: '',
       email: '',
-      phone: ''
+      phone: '',
+      expertConsultation: '',
+      benchmarkReport: ''
     });
   };
 
@@ -255,6 +259,14 @@ const Report = ({ answers, surveyData }) => {
     }
     if (!respondentInfo.name.trim()) {
       alert('氏名は必須項目です。');
+      return;
+    }
+    if (!respondentInfo.expertConsultation) {
+      alert('専門家による詳細な改善提案の希望をお選びください。');
+      return;
+    }
+    if (!respondentInfo.benchmarkReport) {
+      alert('業界ベンチマークレポートのご提供の希望をお選びください。');
       return;
     }
 
@@ -274,14 +286,16 @@ const Report = ({ answers, surveyData }) => {
         ? '/api/CreateRespondent'
         : (import.meta.env.VITE_CREATE_RESPONDENT_API_URL || '/api/CreateRespondent');
 
-      const respondentData = {
+      const respondentData = {// 送信データの整形
         respondentId: storedRespondentId,
         company: respondentInfo.company.trim(),
         department: respondentInfo.department.trim() || null,
         jobTitle: respondentInfo.jobTitle.trim() || null,
         name: respondentInfo.name.trim(),
         email: respondentInfo.email.trim() || null,
-        phone: respondentInfo.phone.trim() || null
+        phone: respondentInfo.phone.trim() || null,
+        expertConsultation: respondentInfo.expertConsultation,
+        benchmarkReport: respondentInfo.benchmarkReport
       };
 
       // API保存とダウンロード処理を並行実行
@@ -514,7 +528,7 @@ const Report = ({ answers, surveyData }) => {
       {/* 回答者情報入力ポップアップ */}
       {showRespondentForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-lg max-w-3xl w-[900px] max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold mb-4 text-gray-800">回答者情報入力</h2>
               <p className="text-sm text-gray-600 mb-6">
@@ -612,6 +626,98 @@ const Report = ({ answers, surveyData }) => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="03-1234-5678"
                   />
+                </div>
+
+                {/* ご協力いただいた企業様への特典 */}
+                <div className="border-t pt-4 mt-6">
+                  <h3 className="text-lg font-medium text-gray-800 mb-4">ご協力いただいた企業様への特典</h3>
+                  
+                  {/* AIによる簡易診断レポート */}
+                  <div className="mb-4">
+                    <div className="flex items-start mb-2">
+                      <div className="w-2 h-2 bg-gray-800 rounded-full mt-2 mr-2 flex-shrink-0"></div>
+                      <div>
+                        <span className="font-medium text-gray-800">AIによる簡易診断レポート</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 ml-4 mb-3">
+                      回答後すぐに、現状の強みと課題をまとめたレポートをダウンロードいただけます。
+                    </p>
+                  </div>
+
+                  {/* 専門家による詳細な改善提案 */}
+                  <div className="mb-4">
+                    <div className="flex items-start mb-2">
+                      <div className="w-2 h-2 bg-gray-800 rounded-full mt-2 mr-2 flex-shrink-0"></div>
+                      <div>
+                        <span className="font-medium text-gray-800">専門家による詳細な改善提案</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 ml-4 mb-3">
+                      ご希望の企業様には、専門家が結果を分析し、改善策とロードマップをご提案します。
+                    </p>
+                    <div className="ml-4 flex items-center space-x-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="expertConsultation"
+                          value="希望する"
+                          checked={respondentInfo.expertConsultation === '希望する'}
+                          onChange={handleInputChange}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">希望する</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="expertConsultation"
+                          value="希望しない"
+                          checked={respondentInfo.expertConsultation === '希望しない'}
+                          onChange={handleInputChange}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">希望しない</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 業界ベンチマークレポートのご提供 */}
+                  <div className="mb-4">
+                    <div className="flex items-start mb-2">
+                      <div className="w-2 h-2 bg-gray-800 rounded-full mt-2 mr-2 flex-shrink-0"></div>
+                      <div>
+                        <span className="font-medium text-gray-800">業界ベンチマークレポートのご提供</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 ml-4 mb-3">
+                      ベンチマークレポートの統計利用にご協力いただける企業様には、3ヶ月後に業界ベンチマークレポートを無償でご提供します。
+                    </p>
+                    <div className="ml-4 flex items-center space-x-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="benchmarkReport"
+                          value="協力する"
+                          checked={respondentInfo.benchmarkReport === '協力する'}
+                          onChange={handleInputChange}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">協力する</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="benchmarkReport"
+                          value="協力しない"
+                          checked={respondentInfo.benchmarkReport === '協力しない'}
+                          onChange={handleInputChange}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">協力しない</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
