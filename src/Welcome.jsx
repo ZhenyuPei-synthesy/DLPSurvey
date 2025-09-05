@@ -17,7 +17,7 @@ const Welcome = ({ onNext }) => {
   // per-field validation errors
   const [fieldErrors, setFieldErrors] = useState({});
   const [showResumeForm, setShowResumeForm] = useState(false);
-  const [resumeInputs, setResumeInputs] = useState({ email: '', answerNumber: '' });
+  const [resumeInputs, setResumeInputs] = useState({ answerNumber: '' });
   const [resumeError, setResumeError] = useState(null);
   const [isResuming, setIsResuming] = useState(false);
   // 免責事項とプライバシーポリシー関連
@@ -84,14 +84,17 @@ const Welcome = ({ onNext }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('handleSubmit called'); // デバッグログ
+    console.log('handleSubmit called'); // デバッグログ
     setIsSubmitting(true);
     setError(null);
 
+    // 免責事項の同意確認のみ
     // 免責事項の同意確認のみ
     const errors = {};
     if (!agreedToTerms) errors.terms = '免責事項とプライバシーポリシーへの同意が必要です。';
 
     if (Object.keys(errors).length > 0) {
+      console.log('Validation errors:', errors); // デバッグログ
       console.log('Validation errors:', errors); // デバッグログ
       setFieldErrors(errors);
       setIsSubmitting(false);
@@ -101,6 +104,7 @@ const Welcome = ({ onNext }) => {
     // apiUrl will always be defined now (fallback to same-origin), but still validate
     if (!apiUrl) {
       console.log('API URL not configured'); // デバッグログ
+      console.log('API URL not configured'); // デバッグログ
       setError('送信先APIが設定されていません。環境変数を確認してください。');
       setIsSubmitting(false);
       return;
@@ -109,23 +113,31 @@ const Welcome = ({ onNext }) => {
     try {
       console.log('Making API request to:', apiUrl); // デバッグログ
       // 空のオブジェクトを送信（APIで回答者番号ベースの値を自動設定）
+      console.log('Making API request to:', apiUrl); // デバッグログ
+      // 空のオブジェクトを送信（APIで回答者番号ベースの値を自動設定）
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // 空のオブジェクト - APIで自動値生成
           // 空のオブジェクト - APIで自動値生成
         })
       });
 
       console.log('API response status:', res.status); // デバッグログ
 
+      console.log('API response status:', res.status); // デバッグログ
+
       if (!res.ok) {
         const text = await res.text();
+        console.log('API error response:', text); // デバッグログ
         console.log('API error response:', text); // デバッグログ
         throw new Error(`APIエラー: ${res.status} ${text}`);
       }
 
       const json = await res.json();
+      console.log('API response data:', json); // デバッグログ
+      
       console.log('API response data:', json); // デバッグログ
       
       const respondentId = json.respondentId || json.id || null;
@@ -138,15 +150,22 @@ const Welcome = ({ onNext }) => {
         sessionStorage.setItem('companyName', respondentId.toString());
         sessionStorage.setItem('respondentEmail', `${respondentId}@.tmp.co.jp`);
         console.log('Stored respondentId:', respondentId); // デバッグログ
+        // 回答者番号ベースの値を保存
+        sessionStorage.setItem('companyName', respondentId.toString());
+        sessionStorage.setItem('respondentEmail', `${respondentId}@.tmp.co.jp`);
+        console.log('Stored respondentId:', respondentId); // デバッグログ
       }
       if (answerNumber) {
         sessionStorage.setItem('answerNumber', answerNumber.toString());
         console.log('Stored answerNumber:', answerNumber); // デバッグログ
+        console.log('Stored answerNumber:', answerNumber); // デバッグログ
       }
       
       console.log('Calling onNext with respondentId:', respondentId); // デバッグログ
+      console.log('Calling onNext with respondentId:', respondentId); // デバッグログ
       onNext(respondentId);
     } catch (err) {
+      console.error('Submit error:', err);
       console.error('Submit error:', err);
       setError(err.message || '送信中にエラーが発生しました');
     } finally {
@@ -159,8 +178,8 @@ const Welcome = ({ onNext }) => {
     setIsResuming(true);
     setResumeError(null);
 
-    if (!resumeInputs.email || !resumeInputs.answerNumber) {
-      setResumeError('メールアドレスとアセスメント番号を入力してください。');
+    if (!resumeInputs.answerNumber) {
+      setResumeError('アセスメント番号を入力してください。');
       setIsResuming(false);
       return;
     }
@@ -174,7 +193,6 @@ const Welcome = ({ onNext }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: resumeInputs.email,
           answerNumber: resumeInputs.answerNumber
         })
       });
@@ -213,7 +231,10 @@ const Welcome = ({ onNext }) => {
         // セッションストレージにデータを設定
         sessionStorage.setItem('respondentId', respondentId.toString());
         sessionStorage.setItem('answerNumber', resumeInputs.answerNumber);
-        sessionStorage.setItem('respondentEmail', resumeInputs.email);
+        // レスポンスからメールアドレスを取得して設定
+        if (json.respondentEmail) {
+          sessionStorage.setItem('respondentEmail', json.respondentEmail);
+        }
 
         // アセスメントを再開
         onNext(respondentId);
@@ -244,124 +265,142 @@ const Welcome = ({ onNext }) => {
   }
 
   return (
-    <div className="h-full font-sans">
+    <div className="h-full font-sans bg-gray-50">
+      <div className="max-w-4xl mx-auto px-6 py-10">
 
-      <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">背景と目的</h2>
-          <p className="text-slate-600 mb-4">
-            データ保護は、企業の競争力や社会的信用を維持する上で不可欠な経営課題です。特に生成AIの普及は、意図しない形での情報漏洩という、これまで想定されなかった新たな脅威を生んでいます。
-          </p>
-
-          <p className="text-slate-600 mb-4">
-            本アセスメントは、AI時代における貴社の情報管理体制の現状を正確に把握することを目的としています。客観的な評価を通じて課題を可視化し、AIを安全に活用できるセキュリティ体制の構築を支援します。
-          </p>
-
-          <p className="text-slate-600 mb-4">
-            組織全体の状況を正確に把握するため、貴社のIT・人事・法務部門等のご協力を想定しています。
-          </p>
-
-          <h3 className="text-lg font-medium mb-3">本アセスメントの作成方法について</h3>
-          <p className="text-slate-600 mb-3">
-            客観性と信頼性を担保するため、以下の公的な指針に基づき設計しています。
-          </p>
-          <ul className="list-disc list-inside text-slate-600 mb-4 space-y-2">
-            <li>
-              <strong>経済産業省「営業秘密管理指針」</strong>
-              <div className="text-sm text-slate-500">不正競争防止法による保護を受けるために必要となる最低限の水準の対策を示すものです。</div>
-            </li>
-            <li>
-              <strong>経済産業省「技術情報の保護ハンドブック」</strong>
-              <div className="text-sm text-slate-500">秘密情報の漏えいを未然に防ぎたいと考える企業の方々が対策を行う際に参考としていただけるよう、様々な対策例を紹介するハンドブックです。</div>
-            </li>
-            <li>
-              <strong>IPA「組織における内部不正防止ガイドライン」</strong>
-              <div className="text-sm text-slate-500">情報管理ルールの理解度や、不正を抑制する組織風土を把握します。</div>
-            </li>
-            <li>
-              <strong>OWASP「OWASPの生成AIセキュリティプロジェクト」</strong>
-              <div className="text-sm text-slate-500">生成AIに特有の脅威やリスクを評価し、対策を講じるためのフレームワークを提供します。</div>
-            </li>
-          </ul>
-
-          <p className="text-slate-600 mb-4">
-            これらの公的指針を横断的に参照し、推奨される対策項目を設問形式に落とし込むことで、AI時代の脅威に対応する網羅的なアセスメントを作成しています。
-          </p>
-
-          <h3 className="text-lg font-medium mb-3">ご協力いただいた企業様への特典</h3>
-          <ul className="list-disc list-inside text-slate-600 space-y-2">
-            <li>
-              <strong>AIによる簡易診断レポート</strong>
-              <div className="text-sm text-slate-500">回答後すぐに、現状の強みと課題をまとめたレポートをダウンロードいただけます。</div>
-            </li>
-            <li>
-              <strong>専門家による詳細な改善提案</strong>
-              <div className="text-sm text-slate-500">ご希望の企業様には、専門家が結果を分析し、改善策とロードマップをご提案します。</div>
-              <div className="mt-2 ml-4 space-y-1">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="expertConsultation"
-                    value="希望する"
-                    checked={form.expertConsultation === '希望する'}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-slate-600">希望する</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="expertConsultation"
-                    value="希望しない"
-                    checked={form.expertConsultation === '希望しない'}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-slate-600">希望しない</span>
-                </label>
-              </div>
-            </li>
-            <li>
-              <strong>業界ベンチマークレポートのご提供</strong>
-              <div className="text-sm text-slate-500">ベンチマークレポートの統計利用にご協力いただける企業様には、3ヶ月後に業界ベンチマークレポートを無償でご提供します。</div>
-              <div className="mt-2 ml-4 space-y-1">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="statisticsCooperation"
-                    value="協力する"
-                    checked={form.statisticsCooperation === '協力する'}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-slate-600">協力する</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="statisticsCooperation"
-                    value="協力しない"
-                    checked={form.statisticsCooperation === '協力しない'}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-slate-600">協力しない</span>
-                </label>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-  <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-medium mb-4">アセスメント開始</h3>
+        {/* 背景と目的セクション */}
+        <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">背景と目的</h2>
           
-          <div className="mb-6">
-            <p className="text-slate-600 text-sm mb-4">
-              「次へ」ボタンを押してアセスメントを開始してください。回答者番号が自動で発行されます。
+          <div className="space-y-4 text-gray-700 leading-relaxed">
+            <p>
+              データ保護は、企業の競争力や社会的信用を維持する上で不可欠な経営課題です。特に生成AIの普及は、意図しない形での情報漏洩という、これまで想定されなかった新たな脅威を生んでいます。
+            </p>
+            <p>
+              本アセスメントは、AI時代における貴社の情報管理体制の現状を正確に把握することを目的としています。客観的な評価を通じて課題を可視化し、AIを安全に活用できるセキュリティ体制の構築を支援します。
             </p>
           </div>
+        </div>
 
+        {/* 本アセスメントの作成方法についてセクション */}
+        <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">本アセスメントの作成方法について</h2>
+          
+          <div className="space-y-4 text-gray-700 leading-relaxed">
+            <p>
+              客観性と信頼性を担保するため、以下の公的な指針に基づき設計しています。
+            </p>
+            
+            <div className="space-y-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-900">経済産業省「営業秘密管理指針」</span>
+                  <p className="text-sm text-gray-600 mt-1">不正競争防止法による保護を受けるために必要となる営業限の水準の対策を示すものです。</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-900">経済産業省「技術情報の保護ハンドブック」</span>
+                  <p className="text-sm text-gray-600 mt-1">秘密情報の流失は未然に防ぐべきと考える企業の方々が対策を行う際に参考としていただけるよう、様々な対策例を紹介するハンドブックです。</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-900">IPA「組織における内部不正防止ガイドライン」</span>
+                  <p className="text-sm text-gray-600 mt-1">情報管理ルールの理解含め、不正を抑制する組織風土を把握します。</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-900">OWASP「OWASPの生成AIセキュリティプロジェクト」</span>
+                  <p className="text-sm text-gray-600 mt-1">生成AIに特有の脅威やリスクを評価し、対策を講じるためのフレームワークを提供します。</p>
+                </div>
+              </div>
+            </div>
+            
+            <p className="mt-4">
+              これらの公的指針を統合的に参照し、推奨される対策項目を設問形式に落とし込むことで、AI時代の脅威に対応する網羅的なアセスメントを作成しています。
+            </p>
+          </div>
+        </div>
+
+        {/* 特典セクション */}
+        <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">ご協力いただきたい企業内の方々</h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900">AIによる簡易診断レポート</h4>
+                <p className="text-sm text-gray-600">回答後すぐに、現状評価と推奨事項をまとめたレポートをダウンロードいただけます。</p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900">専門家による詳細な改善提案</h4>
+                <p className="text-sm text-gray-600">ご希望の企業様には、弊社のコンサルタントが回答結果を分析し、改善策とロードマップをご提案致します。</p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900">業界ベンチマークレポートのご提供</h4>
+                <p className="text-sm text-gray-600">ベンチマークレポートの統計利用にご協力いただける企業様には、3ヶ月後に業界ベンチマークレポートを無償でご提供致します。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* アセスメント開始セクション */}
+        <div className="bg-white p-8 rounded-lg shadow-sm">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">アセスメントを開始するにあたって</h2>
+          
+          <p className="text-gray-700 mb-6">
+            準備ができました。以下のボタンからアセスメントを開始してください。回答途中での保存も可能です。
+            <br />
+            組織全体の状況を正確に把握するため、貴社のIT・人事・法務部門等のご協力を想定しています。
+            <br />
+            設問は全部で85問、想定所要時間は20～30分です。もし途中で回答を中断される場合は、画面の「一時保存」ボタンを押してください。後ほど同じ状態から再開することが可能です。
+          </p>
           <form onSubmit={handleSubmit}>
             {/* 入力フォームを非表示 */}
             <div className="space-y-3" style={{display: 'none'}}>
@@ -401,7 +440,7 @@ const Welcome = ({ onNext }) => {
             </div>
 
             {/* 免責事項・プライバシーポリシーの同意 */}
-            <div className="mb-6 pt-4 border-t border-gray-200">
+            <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <label className="flex items-start space-x-3">
                 <input
                   type="checkbox"
@@ -414,90 +453,81 @@ const Welcome = ({ onNext }) => {
                   }}
                   className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <span className="text-sm text-slate-600">
+                <span className="text-sm text-gray-700">
                   <button
                     type="button"
                     onClick={() => setShowTermsModal(true)}
-                    className="text-blue-600 underline hover:text-blue-800"
+                    className="text-blue-600 underline hover:text-blue-800 font-medium"
                   >
                     免責事項
                   </button>
                   をご確認の上、次へ進めてください
-                   <span className="text-red-600">*</span>
+                   <span className="text-red-600 ml-1">*</span>
                 </span>
               </label>
               {fieldErrors.terms && (
-                <p className="mt-1 text-sm text-red-600">{fieldErrors.terms}</p>
+                <p className="mt-2 text-sm text-red-600">{fieldErrors.terms}</p>
               )}
             </div>
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 bg-red-50 p-3 rounded">{error}</p>}
 
-            <div className="text-right">
+            {/* アクションボタン */}
+            <div className="flex flex-col items-center space-y-4">
               <button 
                 type="submit" 
                 disabled={isSubmitting || !agreedToTerms} 
-                className={`px-6 py-2 rounded ${
+                className={`w-full max-w-md px-8 py-3 rounded-full text-white font-medium text-lg transition-all duration-200 ${
                   isSubmitting || !agreedToTerms 
                     ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700'
-                } text-white`}
+                    : 'bg-[#8D66B9] hover:bg-[#7A5BA5] hover:shadow-lg transform hover:scale-105'
+                }`}
               >
-                {isSubmitting ? '処理中...' : '次へ'}
+                {isSubmitting ? '処理中...' : 'アセスメント開始'}
+              </button>
+
+              <button 
+                type="button"
+                onClick={handleResumeToggle} 
+                className="w-full max-w-md px-8 py-3 rounded-full border-2 border-gray-300 text-gray-700 font-medium text-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200"
+              >
+                アセスメント再開
               </button>
             </div>
           </form>
 
-          <div className="mt-6 border-t pt-4">
-            <button onClick={handleResumeToggle} className="text-sm text-blue-600 underline">アセスメント再開</button>
-            {showResumeForm && (
-              <div className="mt-4 space-y-3">
-                <p className="text-sm text-slate-600">保存したメールアドレスとアセスメント番号を入力してアセスメントを再開できます。</p>
-                <form onSubmit={handleResumeSubmit}>
+          {showResumeForm && (
+            <div className="mt-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">アセスメント再開</h3>
+              <p className="text-sm text-gray-600 mb-4">保存したアセスメント番号を入力してアセスメントを再開できます。</p>
+              <form onSubmit={handleResumeSubmit}>
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm text-slate-600">メールアドレス</label>
-                    <input 
-                      type="email" 
-                      name="email" 
-                      value={resumeInputs.email} 
-                      onChange={handleResumeInputChange} 
-                      className="mt-1 w-full p-2 border rounded" 
-                      required 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-slate-600">アセスメント番号</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">アセスメント番号</label>
                     <input 
                       name="answerNumber" 
                       value={resumeInputs.answerNumber} 
                       onChange={handleResumeInputChange} 
-                      className="mt-1 w-full p-2 border rounded" 
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                       required 
                     />
                   </div>
                   {resumeError && (
-                    <p className="mt-2 text-sm text-red-600">{resumeError}</p>
+                    <p className="text-sm text-red-600 bg-red-50 p-3 rounded">{resumeError}</p>
                   )}
-                  <div className="text-right mt-3">
+                  <div className="text-center">
                     <button 
                       type="submit" 
                       disabled={isResuming}
-                      className="px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400"
+                      className="px-6 py-2 bg-[#8D66B9] text-white rounded-lg font-medium hover:bg-[#7A5BA5] disabled:bg-gray-400 transition-colors"
                     >
                       {isResuming ? '再開中...' : '再開'}
                     </button>
                   </div>
-                </form>
-              </div>
-            )}
-            
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-              <p className="text-slate-600 text-sm">
-                設問は全部で{totalQuestions > 0 ? totalQuestions : 'xx'}問、想定所要時間は20～30分です。<br />
-                もし途中で回答を中断される場合は、画面の「一時保存」ボタンを押してください。後ほど同じ状態から再開することが可能です。
-              </p>
+                </div>
+              </form>
             </div>
-          </div>
+          )}       
         </div>
       </div>
 
@@ -506,7 +536,7 @@ const Welcome = ({ onNext }) => {
         <div className="max-w-4xl mx-auto px-6 text-center">
           <div className="mb-4">
             <a
-              href="https://synthesy.aozoramama1223.com/privacy/"
+              href="https://synthesy.co.jp/privacy/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 underline hover:text-blue-800 transition-colors font-medium"

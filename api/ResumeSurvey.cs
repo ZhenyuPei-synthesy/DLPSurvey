@@ -32,7 +32,7 @@ namespace Company.Function
                 string requestBody = await req.ReadAsStringAsync() ?? "{}";
                 var requestData = JsonConvert.DeserializeObject<ResumeRequest>(requestBody);
 
-                _logger.LogInformation($"Resume request for email {requestData?.Email} with answer number {requestData?.AnswerNumber}");
+                _logger.LogInformation($"Resume request for answer number {requestData?.AnswerNumber}");
 
                 // 接続文字列取得
                 var connectionString = Environment.GetEnvironmentVariable("SqlDbConnection", EnvironmentVariableTarget.Process);
@@ -44,12 +44,12 @@ namespace Company.Function
                     return response;
                 }
 
-                if (string.IsNullOrWhiteSpace(requestData?.Email) || string.IsNullOrWhiteSpace(requestData?.AnswerNumber))
+                if (string.IsNullOrWhiteSpace(requestData?.AnswerNumber))
                 {
                     response.StatusCode = HttpStatusCode.BadRequest;
                     await response.WriteAsJsonAsync(new { 
                         success = false, 
-                        error = "Email and AnswerNumber are required" 
+                        error = "AnswerNumber is required" 
                     });
                     return response;
                 }
@@ -57,7 +57,7 @@ namespace Company.Function
                 string? respondentId = null;
                 string? status = null;
 
-                // Email + 回答番号で回答者番号と回答ステータスを検索
+                // アセスメント番号で回答者番号と回答ステータスを検索
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
@@ -65,11 +65,9 @@ namespace Company.Function
                     var selectCmd = new SqlCommand(@"
                         SELECT TOP 1 [回答者番号], [回答ステータス]
                         FROM [Respondent$]
-                        WHERE [メールアドレス] = @Email 
-                          AND [回答番号] = @AnswerNumber 
+                        WHERE [回答番号] = @AnswerNumber 
                         ORDER BY [作成日時] DESC", connection);
                     
-                    selectCmd.Parameters.AddWithValue("@Email", requestData.Email);
                     selectCmd.Parameters.AddWithValue("@AnswerNumber", requestData.AnswerNumber);
                     
                     using (var reader = await selectCmd.ExecuteReaderAsync())
@@ -87,7 +85,7 @@ namespace Company.Function
                     response.StatusCode = HttpStatusCode.NotFound;
                     await response.WriteAsJsonAsync(new { 
                         success = false, 
-                        error = "No survey record found for the provided email and answer number" 
+                        error = "指定されたアセスメント番号に対応するアンケートが見つかりませんでした。" 
                     });
                     return response;
                 }
