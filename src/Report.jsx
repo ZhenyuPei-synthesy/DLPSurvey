@@ -57,17 +57,8 @@ const Report = ({ answers, surveyData }) => {
           const result = await response.json();
           if (result.success && result.respondentInfo) {
             const info = result.respondentInfo;
-            setRespondentInfo({
-              company: info.company || '',
-              department: info.department || '',
-              jobTitle: info.jobTitle || '',
-              name: info.name || '',
-              email: info.email || '',
-              phone: info.phone || '',
-              expertConsultation: info.expertConsultation || '',
-              benchmarkReport: info.benchmarkReport || ''
-            });
             
+            // フォームには自動入力しない - ダウンロード状態の確認のみ行う
             // データベースの値に基づいてダウンロード状態を設定
             const isAlreadyDownloaded = info.registrationAndDownloadStatus === '登録及びダウンロード済み';
             setIsDownloaded(isAlreadyDownloaded);
