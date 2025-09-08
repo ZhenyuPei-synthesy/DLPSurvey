@@ -63,6 +63,9 @@ namespace Company.Function
                 var name = (string)(data?.name ?? string.Empty);
                 var email = (string)(data?.email ?? string.Empty);
                 var phone = (string)(data?.phone ?? string.Empty);
+                var expertConsultation = (string)(data?.expertConsultation ?? string.Empty); // 詳細提案希望要否
+                var benchmarkReport = (string)(data?.benchmarkReport ?? string.Empty); // ベンチマーク統計協力有無
+                var registrationAndDownloadStatus = (string)(data?.registrationAndDownloadStatus ?? string.Empty); // 回答者情報登録及びダウンロード
 
                 _logger.LogInformation("Parsed fields - respondentId:{respondentId}, company:{company}, department:{department}, jobTitle:{jobTitle}, name:{name}, email:{email}, phone:{phone}",
                     respondentId, company, department, jobTitle, name, email, phone);
@@ -94,6 +97,9 @@ SET [企業名] = @company,
     [氏名] = @name,
     [メールアドレス] = @email,
     [電話番号] = @phone,
+    [詳細提案希望要否] = @expertConsultation,
+    [ベンチマーク統計協力有無] = @benchmarkReport,
+    [回答者情報登録及びダウンロード] = @registrationAndDownloadStatus,
     [回答時刻] = @answerTime
 WHERE [回答者番号] = @respondentId;
 ";
@@ -105,6 +111,9 @@ WHERE [回答者番号] = @respondentId;
                         updateCmd.Parameters.AddWithValue("@name", string.IsNullOrEmpty(name) ? (object)DBNull.Value : name);
                         updateCmd.Parameters.AddWithValue("@email", string.IsNullOrEmpty(email) ? (object)DBNull.Value : email);
                         updateCmd.Parameters.AddWithValue("@phone", string.IsNullOrEmpty(phone) ? (object)DBNull.Value : phone);
+                        updateCmd.Parameters.AddWithValue("@expertConsultation", string.IsNullOrEmpty(expertConsultation) ? (object)DBNull.Value : expertConsultation);
+                        updateCmd.Parameters.AddWithValue("@benchmarkReport", string.IsNullOrEmpty(benchmarkReport) ? (object)DBNull.Value : benchmarkReport);
+                        updateCmd.Parameters.AddWithValue("@registrationAndDownloadStatus", string.IsNullOrEmpty(registrationAndDownloadStatus) ? (object)DBNull.Value : registrationAndDownloadStatus);
                         updateCmd.Parameters.AddWithValue("@answerTime", GetJapanNow());
 
                         _logger.LogInformation("Executing UPDATE SQL: {sql}", updateSql);
@@ -150,6 +159,7 @@ WHERE [回答者番号] = @respondentId;
 
                         // Insert new respondent with auto-generated values based on respondent ID
                         // Use a transaction to get next ID and insert in one operation
+
                         var sql = @"
 SET XACT_ABORT ON;
 BEGIN TRAN;
@@ -163,8 +173,14 @@ FROM [dbo].[Respondent$] WITH (TABLOCKX, HOLDLOCK);
 SET @nextStr = CAST(@next AS NVARCHAR(50));
 
 -- insert sequential respondent number and auto-generated values
-INSERT INTO [dbo].[Respondent$] ([回答者番号],[企業名],[部署名],[役職名],[氏名],[メールアドレス],[電話番号],[作成日時],[回答時刻],[回答番号],[回答ステータス])
-VALUES (@next, @nextStr, @department, @jobTitle, @nextStr, @nextStr + '@.tmp.co.jp', @phone, @created, @answerTime, @answerNumber, @status);
+INSERT INTO [dbo].[Respondent$] (
+    [回答者番号], [企業名], [部署名], [役職名], [氏名], [メールアドレス], [電話番号],
+    [詳細提案希望要否], [ベンチマーク統計協力有無], [回答者情報登録及びダウンロード],
+    [作成日時], [回答時刻], [回答番号], [回答ステータス])
+VALUES (
+    @next, @nextStr, @department, @jobTitle, @nextStr, @nextStr + '@.tmp.co.jp', @phone,
+    @expertConsultation, @benchmarkReport, @registrationAndDownloadStatus,
+    @created, @answerTime, @answerNumber, @status);
 
 COMMIT;
 SELECT @next;
@@ -175,6 +191,9 @@ SELECT @next;
                         cmd.Parameters.AddWithValue("@department", string.IsNullOrEmpty(department) ? (object)DBNull.Value : department);
                         cmd.Parameters.AddWithValue("@jobTitle", string.IsNullOrEmpty(jobTitle) ? (object)DBNull.Value : jobTitle);
                         cmd.Parameters.AddWithValue("@phone", string.IsNullOrEmpty(phone) ? (object)DBNull.Value : phone);
+                        cmd.Parameters.AddWithValue("@expertConsultation", string.IsNullOrEmpty(expertConsultation) ? (object)DBNull.Value : expertConsultation);
+                        cmd.Parameters.AddWithValue("@benchmarkReport", string.IsNullOrEmpty(benchmarkReport) ? (object)DBNull.Value : benchmarkReport);
+                        cmd.Parameters.AddWithValue("@registrationAndDownloadStatus", string.IsNullOrEmpty(registrationAndDownloadStatus) ? (object)DBNull.Value : registrationAndDownloadStatus);
                         // insert current Japan time for creation, answer time and mark status as '回答中'
                         var japanNow = GetJapanNow();
                         cmd.Parameters.AddWithValue("@created", japanNow);

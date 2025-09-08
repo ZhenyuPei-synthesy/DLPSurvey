@@ -15,7 +15,7 @@ function App() {
   const surveyFormRef = useRef(null);
 
   // idle timeout (15 minutes)
-  const IDLE_TIMEOUT_MS = 0.2 * 60 * 1000;
+  const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 
   // 初期化時にセッションから回答者IDを復元
   useEffect(() => {

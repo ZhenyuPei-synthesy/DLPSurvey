@@ -291,7 +291,7 @@ const Report = ({ answers, surveyData }) => {
         ? '/api/CreateRespondent'
         : (import.meta.env.VITE_CREATE_RESPONDENT_API_URL || '/api/CreateRespondent');
 
-      const respondentData = {// 送信データの整形
+      const respondentData = {
         respondentId: storedRespondentId,
         company: respondentInfo.company.trim(),
         department: respondentInfo.department.trim() || null,
@@ -300,7 +300,8 @@ const Report = ({ answers, surveyData }) => {
         email: respondentInfo.email.trim() || null,
         phone: respondentInfo.phone.trim() || null,
         expertConsultation: respondentInfo.expertConsultation,
-        benchmarkReport: respondentInfo.benchmarkReport
+        benchmarkReport: respondentInfo.benchmarkReport,
+        registrationAndDownloadStatus: "登録及びダウンロード済み"
       };
 
       // API保存とダウンロード処理を並行実行
