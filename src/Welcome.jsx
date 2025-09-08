@@ -267,7 +267,7 @@ const Welcome = ({ onNext }) => {
   return (
     <div className="h-full font-sans bg-gray-50">
       <div className="max-w-4xl mx-auto px-6 py-10">
-
+        
         {/* 背景と目的セクション */}
         <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
           <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">背景と目的</h2>
@@ -282,68 +282,62 @@ const Welcome = ({ onNext }) => {
           </div>
         </div>
 
-        {/* 本アセスメントの作成方法についてセクション */}
+        {/* 利用方法セクション */}
         <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
-          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">本アセスメントの作成方法について</h2>
+          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">本アセスメントの利用方法について</h2>
           
-          <div className="space-y-4 text-gray-700 leading-relaxed">
-            <p>
-              客観性と信頼性を担保するため、以下の公的な指針に基づき設計しています。
-            </p>
-            
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-900">経済産業省「営業秘密管理指針」</span>
-                  <p className="text-sm text-gray-600 mt-1">不正競争防止法による保護を受けるために必要となる営業限の水準の対策を示すものです。</p>
-                </div>
+          <p className="text-gray-700 mb-4">
+            客観性と信頼性を担保するため、以下のステップで質問項目が構成されています。
+          </p>
+
+          <div className="space-y-4">
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
               </div>
-              
-              <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-900">経済産業省「技術情報の保護ハンドブック」</span>
-                  <p className="text-sm text-gray-600 mt-1">秘密情報の流失は未然に防ぐべきと考える企業の方々が対策を行う際に参考としていただけるよう、様々な対策例を紹介するハンドブックです。</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-900">IPA「組織における内部不正防止ガイドライン」</span>
-                  <p className="text-sm text-gray-600 mt-1">情報管理ルールの理解含め、不正を抑制する組織風土を把握します。</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-900">OWASP「OWASPの生成AIセキュリティプロジェクト」</span>
-                  <p className="text-sm text-gray-600 mt-1">生成AIに特有の脅威やリスクを評価し、対策を講じるためのフレームワークを提供します。</p>
-                </div>
+              <div>
+                <h4 className="font-medium text-gray-900">現状把握（経営層/管理職向け）</h4>
+                <p className="text-sm text-gray-600">不正行為防止に必要な体制がとられているかを診断する質問項目です。</p>
               </div>
             </div>
-            
-            <p className="mt-4">
-              これらの公的指針を統合的に参照し、推奨される対策項目を設問形式に落とし込むことで、AI時代の脅威に対応する網羅的なアセスメントを作成しています。
-            </p>
+
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900">経営陣営（組織情報管理の高いリテラシー）</h4>
+                <p className="text-sm text-gray-600">活用名称提出に組織全体に求められる安全な活用の対策が共有されているかを確認する項目です。</p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900">AI活用における情報不正防止対策</h4>
+                <p className="text-sm text-gray-600">情報セキュリティ対策に関する方針を明確にする質問項目です。</p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900">今後のChatGPT活用に必要なアセスメント</h4>
+                <p className="text-sm text-gray-600">AI活用に伴う情報セキュリティリスクの対策項目についてのチェックリストです。</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -359,8 +353,8 @@ const Welcome = ({ onNext }) => {
                 </svg>
               </div>
               <div>
-                <h4 className="font-medium text-gray-900">AIによる簡易診断レポート</h4>
-                <p className="text-sm text-gray-600">回答後すぐに、現状評価と推奨事項をまとめたレポートをダウンロードいただけます。</p>
+                <h4 className="font-medium text-gray-900">AIおよび情報活用レポート</h4>
+                <p className="text-sm text-gray-600">回答を基準し、部門の活動状況を破綻した上でレポート作成にご協力いただけます。</p>
               </div>
             </div>
 
@@ -371,8 +365,8 @@ const Welcome = ({ onNext }) => {
                 </svg>
               </div>
               <div>
-                <h4 className="font-medium text-gray-900">専門家による詳細な改善提案</h4>
-                <p className="text-sm text-gray-600">ご希望の企業様には、弊社のコンサルタントが回答結果を分析し、改善策とロードマップをご提案致します。</p>
+                <h4 className="font-medium text-gray-900">専門家による詳細な改善研修</h4>
+                <p className="text-sm text-gray-600">ご希望の必要領域に、専門家がお答えを研修し、安全性についてより深く振り下げします。</p>
               </div>
             </div>
 
@@ -383,8 +377,8 @@ const Welcome = ({ onNext }) => {
                 </svg>
               </div>
               <div>
-                <h4 className="font-medium text-gray-900">業界ベンチマークレポートのご提供</h4>
-                <p className="text-sm text-gray-600">ベンチマークレポートの統計利用にご協力いただける企業様には、3ヶ月後に業界ベンチマークレポートを無償でご提供致します。</p>
+                <h4 className="font-medium text-gray-900">選択ベンダーサポートへのご質問</h4>
+                <p className="text-sm text-gray-600">ベンダーパートナーからの追加印刷が必要な場合には、経費からご連絡・協力します。</p>
               </div>
             </div>
           </div>
@@ -393,14 +387,21 @@ const Welcome = ({ onNext }) => {
         {/* アセスメント開始セクション */}
         <div className="bg-white p-8 rounded-lg shadow-sm">
           <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">アセスメントを開始するにあたって</h2>
-          
-          <p className="text-gray-700 mb-6">
-            準備ができました。以下のボタンからアセスメントを開始してください。回答途中での保存も可能です。
-            <br />
-            組織全体の状況を正確に把握するため、貴社のIT・人事・法務部門等のご協力を想定しています。
-            <br />
-            設問は全部で85問、想定所要時間は20～30分です。もし途中で回答を中断される場合は、画面の「一時保存」ボタンを押してください。後ほど同じ状態から再開することが可能です。
-          </p>
+            <div className="text-gray-700 mb-6">
+              <p className="mb-4">
+                本アセスメントは、貴社の組織全体の状況を正確に把握するのを目的としているため、必要に応じて貴社のIT・人事・法務部門等のご協力を想定しています。
+              </p>
+
+              <ul className="list-disc list-inside mb-4 pl-4">
+                <li><strong>設問数</strong>：85問</li>
+                <li><strong>所要時間の目安</strong>：20～30分</li>
+              </ul>
+
+              <p>
+                <strong>▼回答を中断する場合</strong><br />
+                回答を途中で中断される場合は、お手数ですが画面の<strong>「一時保存」ボタン</strong>をご利用ください。後ほど同じ状態から再開できます。なお、セキュリティ保護のため、<strong>15分以上画面操作がないと自動的一時保存</strong>されます。<br />
+              </p>
+            </div>
           <form onSubmit={handleSubmit}>
             {/* 入力フォームを非表示 */}
             <div className="space-y-3" style={{display: 'none'}}>
@@ -461,7 +462,7 @@ const Welcome = ({ onNext }) => {
                   >
                     免責事項
                   </button>
-                  をご確認の上、次へ進めてください
+                  をご確認の上、アセスメント開始へお進めてください。
                    <span className="text-red-600 ml-1">*</span>
                 </span>
               </label>
@@ -604,11 +605,6 @@ const Welcome = ({ onNext }) => {
                     <h5 className="font-medium text-gray-800 mb-1">参考情報としての位置づけ:</h5>
                     <p className="mb-3">
                       AIによる評価結果は、貴社の情報漏洩対策の現状を把握するための一助となる参考情報です。本評価のみに基づいた最終的な意思決定や対策の実施については、お客様ご自身の責任で行っていただくとともに、必要に応じて専門家へご相談ください。
-                    </p>
-
-                    <h5 className="font-medium text-gray-800 mb-1">損害の責任:</h5>
-                    <p className="mb-3">
-                      本ツールの利用によって生じたいかなる損害についても、当方は一切の責任を負いかねますので、あらかじめご了承ください。
                     </p>
                   </div>
                 </div>
