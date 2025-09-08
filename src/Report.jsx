@@ -38,6 +38,49 @@ const Report = ({ answers, surveyData }) => {
     benchmarkReport: ''
   });
 
+  // 回答者情報を取得してダウンロード状態を確認
+  useEffect(() => {
+    const loadRespondentInfo = async () => {
+      try {
+        const storedRespondentId = sessionStorage.getItem('respondentId');
+        if (!storedRespondentId) {
+          return;
+        }
+
+        const apiUrl = import.meta.env.MODE === 'development' 
+          ? '/api/GetRespondentInfo'
+          : (import.meta.env.VITE_GET_RESPONDENT_INFO_API_URL || '/api/GetRespondentInfo');
+
+        const response = await fetch(`${apiUrl}?respondentId=${storedRespondentId}`);
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.respondentInfo) {
+            const info = result.respondentInfo;
+            setRespondentInfo({
+              company: info.company || '',
+              department: info.department || '',
+              jobTitle: info.jobTitle || '',
+              name: info.name || '',
+              email: info.email || '',
+              phone: info.phone || '',
+              expertConsultation: info.expertConsultation || '',
+              benchmarkReport: info.benchmarkReport || ''
+            });
+            
+            // データベースの値に基づいてダウンロード状態を設定
+            const isAlreadyDownloaded = info.registrationAndDownloadStatus === '登録及びダウンロード済み';
+            setIsDownloaded(isAlreadyDownloaded);
+          }
+        }
+      } catch (err) {
+        console.error("回答者情報の読み込み中にエラー:", err);
+      }
+    };
+
+    loadRespondentInfo();
+  }, []);
+
   // AI評価データを読み込む
   useEffect(() => {
     const loadAiEvaluations = async () => {
@@ -243,16 +286,8 @@ const Report = ({ answers, surveyData }) => {
   // キャンセルボタンの処理
   const handleCancel = () => {
     setShowRespondentForm(false);
-    setRespondentInfo({
-      company: '',
-      department: '',
-      jobTitle: '',
-      name: '',
-      email: '',
-      phone: '',
-      expertConsultation: '',
-      benchmarkReport: ''
-    });
+    // データベースから取得した情報があればそれを保持、なければ空にする
+    // （新規の場合のみリセット）
   };
 
   // 登録してダウンロードボタンの処理

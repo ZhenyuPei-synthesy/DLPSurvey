@@ -49,12 +49,12 @@ namespace Company.Function
             _logger.LogInformation("CreateRespondent invoked");
             try
             {
-                string body = await req.ReadAsStringAsync();
-                _logger.LogInformation("Raw request body: {body}", body ?? "(null)");
+                string body = await req.ReadAsStringAsync() ?? "";
+                _logger.LogInformation("Raw request body: {body}", body);
 
                 // guard against null for deserialization
                 var safeBody = body ?? "{}";
-                dynamic data = JsonConvert.DeserializeObject(safeBody);
+                dynamic? data = JsonConvert.DeserializeObject(safeBody);
 
                 var respondentId = (string)(data?.respondentId ?? string.Empty);
                 var company = (string)(data?.company ?? string.Empty);
