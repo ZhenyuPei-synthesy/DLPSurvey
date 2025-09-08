@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import SurveyForm from './SurveyForm';
 import Welcome from './Welcome';
 import Report from './Report';
@@ -12,9 +12,10 @@ function App() {
   const [surveyData, setSurveyData] = useState([]);
   const [showResumeInfo, setShowResumeInfo] = useState(false);
   const [resumePayload, setResumePayload] = useState({ email: null, answerNumber: null });
+  const surveyFormRef = useRef(null);
 
-  // idle timeout (10 minutes)
-  const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+  // idle timeout (15 minutes)
+  const IDLE_TIMEOUT_MS = 0.2 * 60 * 1000;
 
   // 初期化時にセッションから回答者IDを復元
   useEffect(() => {
@@ -69,17 +70,38 @@ function App() {
 
     const resetTimer = () => {
       if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        // clear session and reset app state
-        sessionStorage.removeItem('respondentId');
-        sessionStorage.removeItem('surveyStarted');
-        setRespondentId(null);
-        setStarted(false);
-        setShowReport(false);
-        setSurveyAnswers({});
-        setSurveyData([]);
-        // notify user
-        try { window.alert('セッションが一定時間操作されなかったためタイムアウトしました。最初の画面に戻ります。'); } catch (e) {}
+      timeoutId = setTimeout(async () => {
+        try {
+          // セッションタイムアウト時に自動一時保存を実行
+          if (surveyFormRef.current && surveyFormRef.current.performAutomaticSave) {
+            await surveyFormRef.current.performAutomaticSave();
+          }
+          
+          // セッションタイムアウト時の処理：一時保存完了後、ResumeInfo画面に遷移
+          const answerNumber = sessionStorage.getItem('answerNumber');
+          const respondentEmail = sessionStorage.getItem('respondentEmail');
+          
+          // ResumeInfo画面を表示（セッションは保持）
+          setResumePayload({ answerNumber, email: respondentEmail });
+          setShowResumeInfo(true);
+          
+          // ユーザーに通知
+          try { 
+            window.alert('セッションがタイムアウトしました。回答が自動保存されました。アセスメントを再開するには、表示されたアセスメント番号を使用してください。'); 
+          } catch (e) {}
+        } catch (error) {
+          console.error('自動保存中にエラーが発生しました:', error);
+          // エラーが発生した場合でもResumeInfo画面を表示
+          const answerNumber = sessionStorage.getItem('answerNumber');
+          const respondentEmail = sessionStorage.getItem('respondentEmail');
+          
+          setResumePayload({ answerNumber, email: respondentEmail });
+          setShowResumeInfo(true);
+          
+          try { 
+            window.alert('セッションがタイムアウトしました。アセスメントを再開するには、アセスメント番号を使用してください。'); 
+          } catch (e) {}
+        }
       }, IDLE_TIMEOUT_MS);
     };
 
@@ -174,6 +196,7 @@ function App() {
           />
         ) : (
           <SurveyForm 
+            ref={surveyFormRef}
             respondentId={respondentId} 
             onComplete={handleSurveyComplete}
             onTemporarySaved={handleTemporarySaved}

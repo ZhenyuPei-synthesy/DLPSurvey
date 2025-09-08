@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 import { parseExcelDataToJson } from './parser.js'; 
 
-  const SurveyForm = ({ respondentId, onComplete, onTemporarySaved }) => {
+  const SurveyForm = forwardRef(({ respondentId, onComplete, onTemporarySaved }, ref) => {
   const [surveyData, setSurveyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -669,6 +669,84 @@ import { parseExcelDataToJson } from './parser.js';
     }
   };
 
+  // refを通じて親コンポーネントから呼び出せる関数を公開
+  useImperativeHandle(ref, () => ({
+    performAutomaticSave: async () => {
+      // タイムアウト時の自動保存処理
+      try {
+        // セッションストレージから回答者番号を取得
+        const storedRespondentId = sessionStorage.getItem('respondentId');
+        const currentRespondentId = storedRespondentId || respondentId;
+
+        if (!currentRespondentId) {
+          console.warn('回答者番号が見つかりません。自動保存をスキップします。');
+          return;
+        }
+
+        // 回答データを整理してAPIに送信する形式に変換
+        const answerItems = [];
+
+        // surveyDataから質問情報を取得し、answersと組み合わせる
+        surveyData.forEach(category => {
+          category.subcategories.forEach(subcategory => {
+            subcategory.items.forEach(item => {
+              const answer = answers[item.id];
+              
+              // スコアを文書形式に変換
+              let evaluationText = null;
+              if (answer && answer.score !== undefined) {
+                if (answer.score === 0) {
+                  evaluationText = "該当なし";
+                } else {
+                  const matchingOption = item.options?.find(opt => opt.score === answer.score);
+                  evaluationText = matchingOption ? matchingOption.text : answer.score.toString();
+                }
+              }
+              
+              // 全項目を送信（回答の有無に関わらず）
+              answerItems.push({
+                itemId: item.id,
+                questionNumber: item.questionNumber,
+                chuItemNumber: item.chuItemNumber,
+                category: category.category,
+                subcategory: subcategory.name,
+                question: item.question,
+                countermeasureEvaluation: evaluationText,
+                comment: answer?.comment || null
+              });
+            });
+          });
+        });
+
+        // 一時保存API呼び出し
+        const apiUrl = import.meta.env.MODE === 'development' 
+          ? '/api/SaveAnswersTemporary'
+          : (import.meta.env.VITE_SAVE_TEMPORARY_API_URL || '/api/SaveAnswersTemporary');
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            respondentId: currentRespondentId,
+            answerItems: answerItems
+          }),
+        });
+
+        if (response.ok) {
+          const json = await response.json();
+          const answerNumber = json?.answerNumber || sessionStorage.getItem('answerNumber');
+          const email = sessionStorage.getItem('respondentEmail') || null;
+          if (answerNumber) sessionStorage.setItem('answerNumber', answerNumber);
+          console.log('自動保存が完了しました。アセスメント番号:', answerNumber);
+        } else {
+          console.error('自動保存に失敗しました。');
+        }
+      } catch (err) {
+        console.error("自動保存中にエラーが発生しました:", err);
+      }
+    }
+  }), [surveyData, answers, respondentId]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full bg-slate-50">
@@ -959,6 +1037,6 @@ import { parseExcelDataToJson } from './parser.js';
       </div>
     </div>
   );
-};
+});
 
 export default SurveyForm;
