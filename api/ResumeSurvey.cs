@@ -91,19 +91,19 @@ namespace Company.Function
                 }
 
                 // 回答ステータスが「回答済」の場合は専用メッセージを返す
-                if (status == "回答済")
-                {
-                    response.StatusCode = HttpStatusCode.OK;
-                    await response.WriteAsJsonAsync(new { 
-                        success = false,
-                        completed = true, 
-                        error = "このアンケートは既に回答が完了しています。ご協力ありがとうございました。" 
-                    });
-                    return response;
-                }
+                // if (status == "回答済")
+                //                 {
+                //                     response.StatusCode = HttpStatusCode.OK;
+                //                     await response.WriteAsJsonAsync(new { 
+                //                         success = false,
+                //                         completed = true, 
+                //                         error = "このアンケートは既に回答が完了しています。ご協力ありがとうございました。" 
+                //                     });
+                //                     return response;
+                //                 }
 
                 // 回答ステータスが「一時保存」でない場合
-                if (status != "一時保存")
+                if (status != "一時保存" && status != "回答済")
                 {
                     response.StatusCode = HttpStatusCode.BadRequest;
                     await response.WriteAsJsonAsync(new { 
