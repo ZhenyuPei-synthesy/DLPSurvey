@@ -1022,13 +1022,16 @@ import { parseExcelDataToJson } from './parser.js';
                 {isSavingTemporary ? '保存中...' : '一時保存'}
               </button>
               
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSubmitting ? '送信中...' : '回答を送信'}
-              </button>
+              <div title={answeredQuestions !== totalQuestions ? "すべての質問に回答すると送信ボタンがクリックできます" : ""}>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || answeredQuestions !== totalQuestions}
+                  style={(isSubmitting || answeredQuestions !== totalQuestions) ? { pointerEvents: 'none' } : {}}
+                  className="w-full px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isSubmitting ? '送信中...' : '回答を送信'}
+                </button>
+              </div>
             </div>
             
             {tempSaveStatus === 'success' && (
