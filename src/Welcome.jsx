@@ -482,7 +482,7 @@ const Welcome = ({ onNext }) => {
                   >
                     免責事項
                   </button>
-                  をご確認の上、次へ進めてください
+                  をご確認の上、次へお進みください
                    <span className="text-red-600 ml-1">*</span>
                 </span>
               </label>
@@ -625,11 +625,6 @@ const Welcome = ({ onNext }) => {
                     <h5 className="font-medium text-gray-800 mb-1">参考情報としての位置づけ:</h5>
                     <p className="mb-3">
                       AIによる評価結果は、貴社の情報漏洩対策の現状を把握するための一助となる参考情報です。本評価のみに基づいた最終的な意思決定や対策の実施については、お客様ご自身の責任で行っていただくとともに、必要に応じて専門家へご相談ください。
-                    </p>
-
-                    <h5 className="font-medium text-gray-800 mb-1">損害の責任:</h5>
-                    <p className="mb-3">
-                      本ツールの利用によって生じたいかなる損害についても、当方は一切の責任を負いかねますので、あらかじめご了承ください。
                     </p>
                   </div>
                 </div>
