@@ -813,6 +813,19 @@ import { parseExcelDataToJson } from './parser.js';
               // 各大項目の質問数を合計 (中項目内のitems数を集計)
               const questionCount = (category.subcategories || []).reduce((acc, sc) => acc + ((sc.items && sc.items.length) || 0), 0);
 
+              // カテゴリ内の回答済み質問数を計算
+              const answeredInCategory = (category.subcategories || []).reduce((acc, sc) => {
+                return acc + (sc.items || []).filter(item => {
+                  const answer = answers[item.id];
+                  return answer && answer.score !== undefined;
+                }).length;
+              }, 0);
+
+              // 進捗表示テキストを生成
+              const progressText = answeredInCategory === 0
+                ? `(${questionCount}問)`
+                : `(${answeredInCategory}/${questionCount}問)`;
+
               return (
                 <div key={category.category} className="border border-gray-200 rounded-lg shadow-sm bg-white">
                   <button
@@ -824,7 +837,7 @@ import { parseExcelDataToJson } from './parser.js';
                       <div className="flex items-center">
                         <span>{category.category}</span>
                         {/* 大項目の後ろに () で質問数を表示（例： (8問) ） */}
-                        <span className="ml-3 text-lg text-slate-500 tabular-nums">({questionCount}問)</span>
+                        <span className="ml-3 text-lg text-slate-500 tabular-nums">{progressText}</span>
                       </div>
                       <ChevronDownIcon 
                         className={`w-6 h-6 ml-auto transition-transform ${openSections[category.category] ? 'rotate-180' : ''}`} 
