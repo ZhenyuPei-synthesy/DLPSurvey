@@ -300,7 +300,7 @@ const Welcome = ({ onNext }) => {
                 </div>
                 <div>
                   <span className="font-semibold text-gray-900">経済産業省「営業秘密管理指針」</span>
-                  <p className="text-sm text-gray-600 mt-1">不正競争防止法による保護を受けるために必要となる営業限の水準の対策を示すものです。</p>
+                  <p className="text-sm text-gray-600 mt-1">不正競争防止法による保護を受けるために必要となる営業秘密の管理水準を示す指針です。</p>
                 </div>
               </div>
               
@@ -312,10 +312,22 @@ const Welcome = ({ onNext }) => {
                 </div>
                 <div>
                   <span className="font-semibold text-gray-900">経済産業省「技術情報の保護ハンドブック」</span>
-                  <p className="text-sm text-gray-600 mt-1">秘密情報の流失は未然に防ぐべきと考える企業の方々が対策を行う際に参考としていただけるよう、様々な対策例を紹介するハンドブックです。</p>
+                  <p className="text-sm text-gray-600 mt-1">企業の秘密情報の流出を未然に防ぐことを目的に、具体的な対策例を紹介するハンドブックです。</p>
                 </div>
               </div>
-              
+
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-900">経済産業省「限定提供データに関する指針」</span>
+                  <p className="text-sm text-gray-600 mt-1">限定提供データの不正競争に関する考え方や具体例を示す指針です。</p>
+                </div>
+              </div>
+
               <div className="flex items-start space-x-3">
                 <div className="w-6 h-6 bg-[#efe6ff] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                   <svg className="w-3 h-3 text-[#2b0066]" fill="currentColor" viewBox="0 0 20 20">
@@ -324,7 +336,7 @@ const Welcome = ({ onNext }) => {
                 </div>
                 <div>
                   <span className="font-semibold text-gray-900">IPA「組織における内部不正防止ガイドライン」</span>
-                  <p className="text-sm text-gray-600 mt-1">情報管理ルールの理解含め、不正を抑制する組織風土を把握します。</p>
+                  <p className="text-sm text-gray-600 mt-1">情報管理ルールの理解含め、不正を抑制する組織風土作りの考え方を示すガイドラインです。</p>
                 </div>
               </div>
               
@@ -335,10 +347,11 @@ const Welcome = ({ onNext }) => {
                   </svg>
                 </div>
                 <div>
-                  <span className="font-semibold text-gray-900">OWASP「OWASPの生成AIセキュリティプロジェクト」</span>
-                  <p className="text-sm text-gray-600 mt-1">生成AIに特有の脅威やリスクを評価し、対策を講じるためのフレームワークを提供します。</p>
+                  <span className="font-semibold text-gray-900">OWASP「OWASP LLMアプリケーションのトップ10」</span>
+                  <p className="text-sm text-gray-600 mt-1">生成AIに特有の脅威やリスクを評価し、対策を講じるための考え方を示すフレームワークです。</p>
                 </div>
               </div>
+
             </div>
             
             <p className="mt-4">
@@ -349,7 +362,7 @@ const Welcome = ({ onNext }) => {
 
         {/* 特典セクション */}
         <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
-          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">ご協力いただきたい企業内の方々</h2>
+          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">ご協力いただきたい企業向け特典</h2>
           
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
@@ -399,7 +412,7 @@ const Welcome = ({ onNext }) => {
               </p>
 
               <ul className="list-disc list-inside mb-4 pl-4">
-                <li><strong>設問数</strong>：85問</li>
+                <li><strong>設問数</strong>：{totalQuestions > 0 ? `${totalQuestions}問` : '計算中...'}</li>
                 <li><strong>所要時間の目安</strong>：20～30分</li>
               </ul>
 
