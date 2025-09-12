@@ -462,7 +462,11 @@ const Report = ({ answers, surveyData }) => {
   // レーダーチャートのデータ - useMemoでtargetScoresの変更を確実に反映
   const radarData = useMemo(() => {
     return {
-      labels: Object.keys(categoryScores),
+      labels: Object.keys(categoryScores).map(category => {
+        const avgScore = categoryScores[category] || 0;
+        const targetScore = targetScores[category] || 3.5;
+        return `${category}\n${avgScore.toFixed(1)} / ${targetScore.toFixed(1)}`;
+      }),
       datasets: [
         {
           label: '平均スコア',
@@ -812,25 +816,9 @@ const Report = ({ answers, surveyData }) => {
               />
             </div>
 
-            {/* 大項目別平均スコア */}
+            {/* 空のスペース（右側のコンテンツを削除したが、スペースは保持） */}
             <div className="w-full lg:w-96">
-              <h3 className="text-lg font-bold mb-4 whitespace-nowrap">大項目別 平均スコア ／ 目標スコア（当社推奨）</h3>
-              <div className="space-y-3">
-                {Object.entries(categoryScores).map(([category, score]) => (
-                  <div key={category} className="flex justify-between items-center">
-                    <span className="text-slate-700 text-sm">{category}</span>
-                    <div className="flex items-center space-x-3">
-                      <span className="font-bold text-lg text-blue-600">
-                        {score}
-                      </span>
-                      <span className="text-lg text-slate-500 font-medium">／</span>
-                      <span className="text-lg text-green-600 font-bold">
-                        {targetScores[category] || 3.5}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {/* 空のコンテナ */}
             </div>
           </div>
         </div>
