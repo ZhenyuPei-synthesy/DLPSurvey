@@ -279,7 +279,7 @@ const Report = ({ answers, surveyData }) => {
       }
       
       // ファイル名を指定の形式で生成
-      const filename = `${companyName}様_AI時代の内部情報漏洩対策アセスメント結果.pdf`;
+      const filename = `AI時代の内部情報漏洩対策アセスメント結果.pdf`;
       pdf.save(filename);
       
       // ダウンロードボタンを再表示
@@ -890,19 +890,65 @@ const Report = ({ answers, surveyData }) => {
                 
                 {/* 点数表示 */}
                 <div className="text-start mb-4">
-                  <div className="text-4xl font-bold text-blue-600 mb-2">
-                    {(Object.values(categoryScores).reduce((sum, score) => sum + Number(score), 0) / Object.values(categoryScores).length).toFixed(1)} / 5.0
-                  </div>
-                  <div className="text-lg font-semibold text-gray-700">
-                    レベル4：定量的管理
-                  </div>
+                  {(() => {
+                    const totalAverage = Object.values(categoryScores).reduce((sum, score) => sum + Number(score), 0) / Object.values(categoryScores).length;
+                    
+                    // レベル判定
+                    let level, levelName;
+                    if (totalAverage <= 1) {
+                      level = 1;
+                      levelName = "無防備";
+                    } else if (totalAverage <= 2.99) {
+                      level = 2;
+                      levelName = "部分防御";
+                    } else if (totalAverage < 3.99) {
+                      level = 3;
+                      levelName = "組織的防御";
+                    } else if (totalAverage <= 4.99) {
+                      level = 4;
+                      levelName = "動的防御";
+                    } else {
+                      level = 5;
+                      levelName = "予測的防御";
+                    }
+
+                    return (
+                      <>
+                        <div className="text-4xl font-bold text-blue-600 mb-2">
+                          {totalAverage.toFixed(1)} / 5.0
+                        </div>
+                        <div className="text-lg font-semibold text-gray-700">
+                          成熟度レベル{level}：{levelName}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* 薄青枠：総合評価文 */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-gray-700">
-                    管理されたプロセスが定着し、安定した成果創出が期待できます。さらに組織文化として根付かせ、自律的な改善サイクルを目指しましょう。
-                  </p>
+                  {(() => {
+                    const totalAverage = Object.values(categoryScores).reduce((sum, score) => sum + Number(score), 0) / Object.values(categoryScores).length;
+                    
+                    let levelDescription;
+                    if (totalAverage <= 1) {
+                      levelDescription = "対策が場当たり的で、ルールやプロセスが存在しない状態。個人の努力や暗黙知に依存しており、組織的な管理は行われていない。リスクの認識も限定的。";
+                    } else if (totalAverage <= 2.99) {
+                      levelDescription = "一部の部門や担当者によって個別の対策が実施されているが、全社で一貫しておらず、サイロ化している状態。ルールは存在するが、非公式であったり形骸化している。";
+                    } else if (totalAverage <= 3.99) {
+                      levelDescription = "全社的な方針やルールが文書化され、関係者に周知されている状態。対策プロセスが定義され、一貫性のある対応が可能になっているが、その効果測定は限定的。";
+                    } else if (totalAverage <= 4.99) {
+                      levelDescription = "標準化されたプロセスが定着し、対策の実施状況や効果がデータに基づいて定量的に測定・評価されている状態。リスク評価に基づき、継続的な改善活動が行われている。";
+                    } else {
+                      levelDescription = "データ保護が組織文化として定着し、事業戦略の一部として位置づけられている状態。自動化技術などを活用して継続的な改善が自律的に行われ、脅威に対しプロアクティブに対応できる。";
+                    }
+
+                    return (
+                      <p className="text-sm text-gray-700">
+                        {levelDescription}
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* 黄色枠：リスク評価文 */}
@@ -915,15 +961,34 @@ const Report = ({ answers, surveyData }) => {
                     </div>
                     <div className="ml-3">
                       <h4 className="text-sm font-bold text-yellow-800">現状のままの場合に想定される主なリスク</h4>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        プロセスの改善や効率化に留意するあまり、挑戦的なアイデア内になくなり、イノベーションのジレンマに陥る可能性があります。市場環境の変化に対する感度が鈍ることも懸念されます。
-                      </p>
+                      {(() => {
+                        const totalAverage = Object.values(categoryScores).reduce((sum, score) => sum + Number(score), 0) / Object.values(categoryScores).length;
+                        
+                        let riskDescription;
+                        if (totalAverage <= 1) {
+                          riskDescription = "重大な情報漏洩事故が発生するリスクが非常に高く、企業の信頼失墜や法的責任の追及を受ける可能性があります。早急な対策の実施が必要です。";
+                        } else if (totalAverage <= 2) {
+                          riskDescription = "部分的な対策では全社的なリスクを十分に管理できず、対策の隙間から情報漏洩が発生する可能性があります。統一的な管理体制の構築が急務です。";
+                        } else if (totalAverage <= 3) {
+                          riskDescription = "基本的な対策は整備されていますが、効果測定や継続的な改善が不十分なため、新たな脅威や環境変化に対応しきれない可能性があります。";
+                        } else if (totalAverage <= 4) {
+                          riskDescription = "プロセスの改善や効率化に留意するあまり、挑戦的なアイデアが生まれにくくなり、イノベーションのジレンマに陥る可能性があります。市場環境の変化に対する感度が鈍ることも懸念されます。";
+                        } else {
+                          riskDescription = "高度な管理体制が整備されていますが、過度に複雑化したプロセスが業務効率を阻害したり、従業員の創造性を制限する可能性があります。バランスの取れた運用が重要です。";
+                        }
+
+                        return (
+                          <p className="text-sm text-yellow-700 mt-1">
+                            {riskDescription}
+                          </p>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>レベル4：定量的管理
+          </div>
         </div>
 
         {/* 評価軸について */}
@@ -1100,10 +1165,10 @@ const Report = ({ answers, surveyData }) => {
               <table className="min-w-full border-collapse border border-gray-300">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-800">
+                    <th className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-800 whitespace-nowrap" style={{width: '80px'}}>
                       レベル
                     </th>
-                    <th className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-800">
+                    <th className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-800 whitespace-nowrap" style={{width: '120px'}}>
                       名称
                     </th>
                     <th className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-800">
@@ -1113,10 +1178,10 @@ const Report = ({ answers, surveyData }) => {
                 </thead>
                 <tbody>
                   <tr className="bg-white">
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900">
+                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
                       1
                     </td>
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900">
+                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
                       無防備
                     </td>
                     <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
@@ -1124,10 +1189,10 @@ const Report = ({ answers, surveyData }) => {
                     </td>
                   </tr>
                   <tr className="bg-gray-50">
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900">
+                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
                       2
                     </td>
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900">
+                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
                       部分防御
                     </td>
                     <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
@@ -1135,10 +1200,10 @@ const Report = ({ answers, surveyData }) => {
                     </td>
                   </tr>
                   <tr className="bg-white">
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900">
+                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
                       3
                     </td>
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900">
+                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
                       組織的防御
                     </td>
                     <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
@@ -1146,10 +1211,10 @@ const Report = ({ answers, surveyData }) => {
                     </td>
                   </tr>
                   <tr className="bg-gray-50">
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900">
+                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
                       4
                     </td>
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900">
+                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
                       動的防御
                     </td>
                     <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
@@ -1157,10 +1222,10 @@ const Report = ({ answers, surveyData }) => {
                     </td>
                   </tr>
                   <tr className="bg-white">
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900">
+                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
                       5
                     </td>
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900">
+                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
                       予測的防御
                     </td>
                     <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
