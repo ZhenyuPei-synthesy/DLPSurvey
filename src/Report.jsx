@@ -1,3 +1,39 @@
+// レーダーチャートのラベルを2行表示（1行目:カテゴリ名, 2行目:点数）
+const customRadarLabelPlugin = {
+  id: 'customRadarLabelPlugin',
+  afterDraw: (chart) => {
+    if (!chart.scales?.r) return;
+    const scale = chart.scales.r;
+    const ctx = chart.ctx;
+    const chartData = chart.data;
+    const categories = chartData.labels;
+    const categoryScores = chartData.datasets[0]?.data || [];
+    const targetScores = chartData.datasets[1]?.data || [];
+    categories.forEach((category, i) => {
+      const avgScore = Number(categoryScores[i]) || 0;
+      const targetScore = Number(targetScores[i]) || 0;
+      const opts = scale.options.pointLabels;
+      const pos = scale.getPointLabelPosition(i);
+      // 1行目: カテゴリ名（通常）
+      ctx.save();
+      ctx.font = `${opts.font.weight || ''} ${opts.font.size || 16}px Arial`;
+      ctx.fillStyle = opts.color || '#1f2937';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(category, pos.x, pos.y - 10);
+      ctx.restore();
+      // 2行目: 点数（太字）
+      ctx.save();
+      ctx.font = `bold ${(opts.font.size || 16)}px Arial`;
+      ctx.fillStyle = opts.color || '#1f2937';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${avgScore.toFixed(1)} / ${targetScore.toFixed(1)}`, pos.x, pos.y + 12);
+      ctx.restore();
+    });
+  }
+};
+ChartJS.register(customRadarLabelPlugin);
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Chart as ChartJS,
@@ -386,7 +422,7 @@ const Report = ({ answers, surveyData }) => {
         });
       });
       
-      categoryScores[category.category] = itemCount > 0 ? (totalScore / itemCount).toFixed(2) : 0;
+  categoryScores[category.category] = itemCount > 0 ? (totalScore / itemCount) : 0;
     });
     
     return categoryScores;
@@ -462,11 +498,7 @@ const Report = ({ answers, surveyData }) => {
   // レーダーチャートのデータ - useMemoでtargetScoresの変更を確実に反映
   const radarData = useMemo(() => {
     return {
-      labels: Object.keys(categoryScores).map(category => {
-        const avgScore = categoryScores[category] || 0;
-        const targetScore = targetScores[category] || 3.5;
-        return `${category}\n${avgScore.toFixed(1)} / ${targetScore.toFixed(1)}`;
-      }),
+      labels: Object.keys(categoryScores), // カテゴリ名のみ
       datasets: [
         {
           label: '平均スコア',
@@ -496,9 +528,9 @@ const Report = ({ answers, surveyData }) => {
         },
       ],
     };
-  }, [categoryScores, targetScores]); // targetScoresとcategoryScoresを依存関係に追加
+  }, [categoryScores, targetScores]);
 
-  const radarOptions = {
+  const radarOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -513,9 +545,23 @@ const Report = ({ answers, surveyData }) => {
         ticks: {
           stepSize: 1,
         },
+        pointLabels: {
+          font: {
+            size: 12,
+            weight: 'normal',
+          },
+          color: '#1f2937',
+          padding: 30,
+          display: true,
+          callback: (label, index) => {
+            const avgScore = Number(Object.values(categoryScores)[index] ?? 0).toFixed(1);
+            const targetScore = Number(Object.values(targetScores)[index] ?? 3.5).toFixed(1);
+            return [label, `${avgScore} / ${targetScore}`];
+          },
+        },
       },
     },
-  };
+  }), [categoryScores, targetScores]);
 
   return (
     <div className="bg-slate-50 min-h-screen p-4 sm:p-8 font-sans">
@@ -807,7 +853,7 @@ const Report = ({ answers, surveyData }) => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-2xl font-bold text-center mb-6">評価結果レポート</h2>
           
-          <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
+          <div className="flex flex-col lg:flex-row items-center justify-start gap-8">
             {/* レーダーチャート */}
             <div className="w-full max-w-md h-96">
               <Radar 
