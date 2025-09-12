@@ -552,11 +552,20 @@ const Report = ({ answers, surveyData }) => {
           },
           color: '#1f2937',
           padding: 30,
+          align: 'center',
           display: true,
           callback: (label, index) => {
+            // 1行の最大文字数
+            const maxLen = 14;
+            // 長いカテゴリ名は自動改行
+            let lines = [];
+            for (let i = 0; i < label.length; i += maxLen) {
+              lines.push(label.slice(i, i + maxLen));
+            }
             const avgScore = Number(Object.values(categoryScores)[index] ?? 0).toFixed(1);
             const targetScore = Number(Object.values(targetScores)[index] ?? 3.5).toFixed(1);
-            return [label, `${avgScore} / ${targetScore}`];
+            lines.push(`${avgScore} / ${targetScore}`);
+            return lines;
           },
         },
       },
@@ -853,7 +862,7 @@ const Report = ({ answers, surveyData }) => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-2xl font-bold text-center mb-6">評価結果レポート</h2>
           
-          <div className="flex flex-col lg:flex-row items-center justify-start gap-8">
+          <div className="flex flex-col lg:flex-row items-center justify- gap-8">
             {/* レーダーチャート */}
             <div className="w-full max-w-md h-96">
               <Radar 
