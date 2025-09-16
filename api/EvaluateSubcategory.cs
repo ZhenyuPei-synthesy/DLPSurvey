@@ -312,7 +312,7 @@ namespace Company.Function
 1. 基準の理解: まず、ideal_stateを精読し、この中項目で達成すべき完璧な状態を完全に理解します。
 2. 定量的分析: 次に、questions配列内の各質問のselected_optionのscoreを確認し、この項目におけるクライアントの全体的な成熟度を定量的に把握します。
 3. ギャップ分析: 上記1〜2で得た情報を統合します。まず、scoreを見て、あるべき姿におけるscoreに達している想定で評価（認めてあげる）してください。でも、実際回答からあるべき姿におけるscoreに達しているかどうかが判断できない部分に関しては、判断できなかった旨を伝えつつ、もしやっていない場合やるようにとソフトに伝えてください。
-4. 解決策の立案: あるべき姿における回答者のscoreレベルまで達成できている前提で次の段階（あるべき姿の全部の要件を満たしている状態ではなく、今のScoreから見た次のステップ）に向けた改善提案を１つ立案してください。
+4. 解決策の立案: あるべき姿における回答者のscoreレベルまで達成できている前提で次の段階（あるべき姿の全部の要件を満たしている状態ではなく、今のScoreから見た次のステップ）に向けた改善提案を１つだけ立案してください。
    
  --- IGNORE ---
 
@@ -321,10 +321,10 @@ namespace Company.Function
 
 {
   ""evaluation_summary"": ""（現状評価のサマリーを2〜3文で記述。）"",
-  ""maturity_level"": ""（スコアの平均点から、「リスク未管理」「基礎的な防御」「管理された防御」「予測的な防御」の4段階で判定）"",
+  ""maturity_level"": ""（スコアの平均点から、「無防備」「部分防御」「組織的防御」「動的防御」「予測的な防御」の5段階で判定）"",
+    なお、無防備は0〜1.4点、部分防御は1.5〜2.4点、組織的防御は2.5〜3.4点、動的防御は3.5〜4.4点、予測的な防御は4.5〜5点とする。
   ""recommendations"": [
     {
-      ""title"": ""（推奨事項1の短いタイトル）"",
       ""description"": ""（この推奨事項が必要な理由と、具体的な内容を記述）"",
       ""first_step"": ""（明日からでも始められる最初の具体的な一歩を記述）""
     }
@@ -500,7 +500,7 @@ namespace Company.Function
                         // maturity_levelとevaluation_summaryをevaluation_textに保存
                         var evaluationSummary = aiResponseJson?.evaluation_summary?.ToString() ?? "";
                         var maturityLevel = aiResponseJson?.maturity_level?.ToString() ?? "";
-                        evaluationText = string.IsNullOrEmpty(maturityLevel) ? evaluationSummary : $"【{maturityLevel}】<br>{evaluationSummary}";
+                        evaluationText = string.IsNullOrEmpty(maturityLevel) ? evaluationSummary : $"{evaluationSummary}";
                         
                         // recommendationsの内容をrecommendation_textに保存
                         var recommendations = aiResponseJson?.recommendations;
@@ -515,7 +515,7 @@ namespace Company.Function
                                 var firstStep = rec?.first_step?.ToString() ?? "";
 
                                 // HTMLタグを使って文字列を構築
-                                recommendationsList.Add($"【{title}】<br>{description}<br><b>Next Action:</b><br>{firstStep}");
+                                recommendationsList.Add($"<br>{description}<br><b>Next Action:</b><br>{firstStep}");
                             }
                             // 複数の推奨事項がある場合、<br>タグで間隔をあけて連結
                             recommendationText = string.Join("<br><br>", recommendationsList);

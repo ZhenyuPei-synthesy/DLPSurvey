@@ -169,7 +169,7 @@ const Report = ({ answers, surveyData }) => {
         // ここで各カテゴリの目標スコアを直接設定
         switch(category.category) {
           case '1. 全社的・組織的管理':
-            initialTargetScores[category.category] = 3.7;
+            initialTargetScores[category.category] = 3.5
             break;
           case '2. 人的管理':
             initialTargetScores[category.category] = 3.5;
@@ -181,10 +181,10 @@ const Report = ({ answers, surveyData }) => {
             initialTargetScores[category.category] = 3.5;
             break;
           case '5. サプライチェーン・外部連携管理':
-            initialTargetScores[category.category] = 3.6;
+            initialTargetScores[category.category] = 3.5;
             break;
           default:
-            initialTargetScores[category.category] = 3.4;
+            initialTargetScores[category.category] = 3.5;
         }
       });
       setTargetScores(initialTargetScores);
@@ -449,6 +449,7 @@ const Report = ({ answers, surveyData }) => {
         let totalScore = 0;
         let itemCount = 0;
         const comments = [];
+        const subcategoryId = subcategory.items[0]?.chuItemNumber;
         
         subcategory.items.forEach(item => {
           const answer = answers[item.id];
@@ -469,6 +470,7 @@ const Report = ({ answers, surveyData }) => {
         subcategoryData.push({
           category: category.category,
           subcategory: subcategory.name,
+          subcategoryId,
           averageScore,
           comments,
           hasAnswers: itemCount > 0
@@ -931,13 +933,13 @@ const Report = ({ answers, surveyData }) => {
                     const totalAverage = Object.values(categoryScores).reduce((sum, score) => sum + Number(score), 0) / Object.values(categoryScores).length;
                     
                     let levelDescription;
-                    if (totalAverage <= 1) {
+                    if (totalAverage <= 1.4) {
                       levelDescription = "対策が場当たり的で、ルールやプロセスが存在しない状態。個人の努力や暗黙知に依存しており、組織的な管理は行われていない。リスクの認識も限定的。";
-                    } else if (totalAverage <= 2.99) {
+                    } else if (totalAverage <= 2.4) {
                       levelDescription = "一部の部門や担当者によって個別の対策が実施されているが、全社で一貫しておらず、サイロ化している状態。ルールは存在するが、非公式であったり形骸化している。";
-                    } else if (totalAverage <= 3.99) {
+                    } else if (totalAverage <= 3.4) {
                       levelDescription = "全社的な方針やルールが文書化され、関係者に周知されている状態。対策プロセスが定義され、一貫性のある対応が可能になっているが、その効果測定は限定的。";
-                    } else if (totalAverage <= 4.99) {
+                    } else if (totalAverage <= 4.4) {
                       levelDescription = "標準化されたプロセスが定着し、対策の実施状況や効果がデータに基づいて定量的に測定・評価されている状態。リスク評価に基づき、継続的な改善活動が行われている。";
                     } else {
                       levelDescription = "データ保護が組織文化として定着し、事業戦略の一部として位置づけられている状態。自動化技術などを活用して継続的な改善が自律的に行われ、脅威に対しプロアクティブに対応できる。";
@@ -955,9 +957,6 @@ const Report = ({ answers, surveyData }) => {
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-4">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
-                      <svg className="w-5 h-5 text-yellow-400 mt-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
                     </div>
                     <div className="ml-3">
                       {/* 中項目分析セクション - 最高点・最低点項目の表示 */}
@@ -977,13 +976,16 @@ const Report = ({ answers, surveyData }) => {
                         const highest = sortedByScore[0];
                         const lowest = sortedByScore[sortedByScore.length - 1];
 
+                        const highestAiEvaluation = highest.subcategoryId ? aiEvaluations[highest.subcategoryId] : null;
+                        const lowestAiEvaluation = lowest.subcategoryId ? aiEvaluations[lowest.subcategoryId] : null;
+
                         return (
                           <div className="">
-                            <h4 className="text-sm font-bold text-yellow-800 mb-3">あなたの組織の強みと改善ポイント</h4>
+                            <h4 className="text-sm font-bold text-yellow-800 mb-3">貴社の高く評価できる領域と強化すべき領域</h4>
                             
                             <div className="space-y-3">
-                              {/* 強み（最高点項目） */}
-                              {parseFloat(highest.averageScore) >= 3 && (
+                              {/* 強み（3.5点以上の最高点項目） */}
+                              {parseFloat(highest.averageScore) >= 3.0 && (
                                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                                   <div className="flex items-start">
                                     <div className="flex-shrink-0">
@@ -993,11 +995,15 @@ const Report = ({ answers, surveyData }) => {
                                     </div>
                                     <div className="ml-2 flex-1">
                                       <div className="text-xs font-medium text-green-800 mb-1">
-                                        🌟 強み: {highest.subcategory} ({parseFloat(highest.averageScore).toFixed(1)}点)
+                                        高く評価できる領域: {highest.subcategory}
                                       </div>
-                                      <div className="text-xs text-green-700">
-                                        この分野での優れた取り組みが確認できます。この強みを他の分野にも展開することを検討してみてください。
-                                      </div>
+                                      {highestAiEvaluation?.evaluationText ? (
+                                        <div className="text-xs text-green-700" dangerouslySetInnerHTML={{ __html: highestAiEvaluation.evaluationText }} />
+                                      ) : (
+                                        <div className="text-xs text-green-700">
+                                          この分野での優れた取り組みが確認できます。この強みを他の分野にも展開することを検討してみてください。
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -1012,11 +1018,15 @@ const Report = ({ answers, surveyData }) => {
                                   </div>
                                   <div className="ml-2 flex-1">
                                     <div className="text-xs font-medium text-orange-800 mb-1">
-                                      🔧 改善ポイント: {lowest.subcategory} ({parseFloat(lowest.averageScore).toFixed(1)}点)
+                                      強化すべき領域: {lowest.subcategory} 
                                     </div>
-                                    <div className="text-xs text-orange-700">
-                                      この分野での対策強化をお勧めします。まずは現状の課題を整理し、優先順位をつけて取り組むことから始めましょう。
-                                    </div>
+                                    {lowestAiEvaluation?.recommendationText ? (
+                                      <div className="text-xs text-orange-700" dangerouslySetInnerHTML={{ __html: lowestAiEvaluation.evaluationText }} />
+                                    ) : (
+                                      <div className="text-xs text-orange-700">
+                                        この分野での対策強化をお勧めします。まずは現状の課題を整理し、優先順位をつけて取り組むことから始めましょう。
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -1318,7 +1328,7 @@ const Report = ({ answers, surveyData }) => {
                       <div className="mb-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-md">
                         {aiEvaluation.evaluationText && (
                           <div className="text-blue-700 text-sm mb-2">
-                            <strong>評価:</strong> 
+                            <strong>評価:</strong> <br />
                             <span dangerouslySetInnerHTML={{ __html: aiEvaluation.evaluationText }} />
                           </div>
                         )}
