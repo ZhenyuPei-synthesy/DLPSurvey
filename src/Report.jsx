@@ -951,7 +951,7 @@ const Report = ({ answers, surveyData }) => {
                   })()}
                 </div>
 
-                {/* 黄色枠：リスク評価文 */}
+                {/* 黄色枠：中項目分析セクション */}
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-4">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
@@ -960,27 +960,68 @@ const Report = ({ answers, surveyData }) => {
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <h4 className="text-sm font-bold text-yellow-800">現状のままの場合に想定される主なリスク</h4>
+                      {/* 中項目分析セクション - 最高点・最低点項目の表示 */}
                       {(() => {
-                        const totalAverage = Object.values(categoryScores).reduce((sum, score) => sum + Number(score), 0) / Object.values(categoryScores).length;
+                        // 回答済みの中項目データを取得
+                        const answeredSubcategories = subcategoryData.filter(sub => sub.hasAnswers);
                         
-                        let riskDescription;
-                        if (totalAverage <= 1) {
-                          riskDescription = "重大な情報漏洩事故が発生するリスクが非常に高く、企業の信頼失墜や法的責任の追及を受ける可能性があります。早急な対策の実施が必要です。";
-                        } else if (totalAverage <= 2) {
-                          riskDescription = "部分的な対策では全社的なリスクを十分に管理できず、対策の隙間から情報漏洩が発生する可能性があります。統一的な管理体制の構築が急務です。";
-                        } else if (totalAverage <= 3) {
-                          riskDescription = "基本的な対策は整備されていますが、効果測定や継続的な改善が不十分なため、新たな脅威や環境変化に対応しきれない可能性があります。";
-                        } else if (totalAverage <= 4) {
-                          riskDescription = "プロセスの改善や効率化に留意するあまり、挑戦的なアイデアが生まれにくくなり、イノベーションのジレンマに陥る可能性があります。市場環境の変化に対する感度が鈍ることも懸念されます。";
-                        } else {
-                          riskDescription = "高度な管理体制が整備されていますが、過度に複雑化したプロセスが業務効率を阻害したり、従業員の創造性を制限する可能性があります。バランスの取れた運用が重要です。";
+                        if (answeredSubcategories.length === 0) {
+                          return null;
                         }
 
+                        // スコアでソート
+                        const sortedByScore = [...answeredSubcategories].sort((a, b) => 
+                          parseFloat(b.averageScore) - parseFloat(a.averageScore)
+                        );
+
+                        const highest = sortedByScore[0];
+                        const lowest = sortedByScore[sortedByScore.length - 1];
+
                         return (
-                          <p className="text-sm text-yellow-700 mt-1">
-                            {riskDescription}
-                          </p>
+                          <div className="">
+                            <h4 className="text-sm font-bold text-yellow-800 mb-3">あなたの組織の強みと改善ポイント</h4>
+                            
+                            <div className="space-y-3">
+                              {/* 強み（最高点項目） */}
+                              {parseFloat(highest.averageScore) >= 3 && (
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                  <div className="flex items-start">
+                                    <div className="flex-shrink-0">
+                                      <svg className="w-4 h-4 text-green-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                      </svg>
+                                    </div>
+                                    <div className="ml-2 flex-1">
+                                      <div className="text-xs font-medium text-green-800 mb-1">
+                                        🌟 強み: {highest.subcategory} ({parseFloat(highest.averageScore).toFixed(1)}点)
+                                      </div>
+                                      <div className="text-xs text-green-700">
+                                        この分野での優れた取り組みが確認できます。この強みを他の分野にも展開することを検討してみてください。
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              {/* 改善ポイント（最低点項目） */}
+                              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                                <div className="flex items-start">
+                                  <div className="flex-shrink-0">
+                                    <svg className="w-4 h-4 text-orange-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                  <div className="ml-2 flex-1">
+                                    <div className="text-xs font-medium text-orange-800 mb-1">
+                                      🔧 改善ポイント: {lowest.subcategory} ({parseFloat(lowest.averageScore).toFixed(1)}点)
+                                    </div>
+                                    <div className="text-xs text-orange-700">
+                                      この分野での対策強化をお勧めします。まずは現状の課題を整理し、優先順位をつけて取り組むことから始めましょう。
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         );
                       })()}
                     </div>
