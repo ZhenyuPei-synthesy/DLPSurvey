@@ -14,6 +14,9 @@ import { parseExcelDataToJson } from './parser.js';
   const [isSavingTemporary, setIsSavingTemporary] = useState(false);
   const [tempSaveStatus, setTempSaveStatus] = useState(null);
   
+  // 限定提供データの該当状態管理
+  const [limitedDataApplicable, setLimitedDataApplicable] = useState(true); // true: 該当する, false: 該当しない
+  
   // AI評価状態管理
   const [aiEvaluationStatus, setAiEvaluationStatus] = useState({});
   // key: subcategoryName, value: { status: 'pending'|'evaluating'|'completed'|'error', evaluationText: string, recommendationText: string, isLocked: boolean, isEditing: boolean }
@@ -517,6 +520,11 @@ import { parseExcelDataToJson } from './parser.js';
 
       // surveyDataから質問情報を取得し、answersと組み合わせる（全項目をループ）
       surveyData.forEach(category => {
+        // 限定提供データで「該当しない」場合はスキップ
+        if (category.category === '7. 限定提供データの管理' && limitedDataApplicable === false) {
+          return;
+        }
+        
         category.subcategories.forEach(subcategory => {
           subcategory.items.forEach(item => {
             const answer = answers[item.id];
@@ -847,6 +855,47 @@ import { parseExcelDataToJson } from './parser.js';
                 
                 {openSections[category.category] && (
                   <div className="px-5 pb-5 border-t border-gray-200">
+                    {/* 限定提供データの管理の場合、該当・非該当選択を表示 */}
+                    {category.category === '7. 限定提供データの管理' && (
+                      <div className="py-4 mb-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 className="text-lg font-semibold text-blue-800 mb-3 px-4">
+                          「限定提供データ」の該当状況
+                        </h4>
+                        <div className="px-4">
+                          <p className="text-sm text-blue-700 mb-4">
+                            貴社では「限定提供データ」（営業秘密には当たらないが、特定の相手に提供され、電磁的に管理されている価値あるデータ）を取り扱っていますか？
+                          </p>
+                          <div className="space-y-2">
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="limitedDataApplicable"
+                                value="true"
+                                checked={limitedDataApplicable === true}
+                                onChange={(e) => setLimitedDataApplicable(true)}
+                                className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                              />
+                              <span className="text-sm font-medium text-gray-900">該当する（質問に回答します）</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="limitedDataApplicable"
+                                value="false"
+                                checked={limitedDataApplicable === false}
+                                onChange={(e) => setLimitedDataApplicable(false)}
+                                className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                              />
+                              <span className="text-sm font-medium text-gray-900">該当しない（質問をスキップします）</span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* 通常の質問表示（限定提供データで非該当の場合は非表示） */}
+                    {!(category.category === '7. 限定提供データの管理' && limitedDataApplicable === false) && (
+                    <>
                     {/* ★★★ ここからが完全に復元された描画部分です ★★★ */}
                     {category.subcategories.map((subcategory) => (
                       <div key={subcategory.name} className="pt-5">
@@ -1003,6 +1052,10 @@ import { parseExcelDataToJson } from './parser.js';
                         </div>
                       </div>
                     ))}
+                    
+                    ))}
+                    </>
+                    )} {/* 限定提供データ質問表示の条件分岐終了 */}
                     {/* ★★★ 描画部分ここまで ★★★ */}
                   </div>
                 )}

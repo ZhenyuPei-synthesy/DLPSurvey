@@ -166,6 +166,11 @@ const Report = ({ answers, surveyData }) => {
     if (surveyData.length > 0) {
       const initialTargetScores = {};
       surveyData.forEach(category => {
+        // 限定提供データの管理で「該当なし」の場合はスキップ
+        if (category.category === '7. 限定提供データの管理' && isLimitedDataNotApplicable()) {
+          return;
+        }
+        
         // ここで各カテゴリの目標スコアを直接設定
         switch(category.category) {
           case '1. 全社的・組織的管理':
@@ -181,6 +186,9 @@ const Report = ({ answers, surveyData }) => {
             initialTargetScores[category.category] = 3.5;
             break;
           case '5. サプライチェーン・外部連携管理':
+            initialTargetScores[category.category] = 3.5;
+            break;
+          case '7. 限定提供データの管理':
             initialTargetScores[category.category] = 3.5;
             break;
           default:
@@ -416,11 +424,40 @@ const Report = ({ answers, surveyData }) => {
     }));
   };
 
+  // 限定提供データが「該当なし」かどうかを判定
+  const isLimitedDataNotApplicable = () => {
+    // 限定提供データのカテゴリを探す
+    const limitedDataCategory = surveyData.find(category => 
+      category.category === '7. 限定提供データの管理'
+    );
+    
+    if (!limitedDataCategory) return false;
+    
+    // カテゴリ内の全ての質問の回答を確認
+    let hasAnswers = false;
+    limitedDataCategory.subcategories.forEach(subcategory => {
+      subcategory.items.forEach(item => {
+        const answer = answers[item.id];
+        if (answer && answer.score !== undefined) {
+          hasAnswers = true;
+        }
+      });
+    });
+    
+    // 全く回答がない場合は「該当なし」として扱う
+    return !hasAnswers;
+  };
+
   // カテゴリごとの平均スコアを計算
   const calculateCategoryScores = () => {
     const categoryScores = {};
     
     surveyData.forEach(category => {
+      // 限定提供データの管理で「該当なし」の場合はスキップ
+      if (category.category === '7. 限定提供データの管理' && isLimitedDataNotApplicable()) {
+        return;
+      }
+      
       let totalScore = 0;
       let itemCount = 0;
       
@@ -445,6 +482,11 @@ const Report = ({ answers, surveyData }) => {
     const subcategoryData = [];
     
     surveyData.forEach(category => {
+      // 限定提供データの管理で「該当なし」の場合はスキップ
+      if (category.category === '7. 限定提供データの管理' && isLimitedDataNotApplicable()) {
+        return;
+      }
+      
       category.subcategories.forEach(subcategory => {
         let totalScore = 0;
         let itemCount = 0;
@@ -1293,7 +1335,13 @@ const Report = ({ answers, surveyData }) => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-2xl font-bold mb-6">中項目別 総評コメント（AIによる評価・推奨事項提案）</h2>
           
-          {surveyData.map((category) => (
+          {surveyData.map((category) => {
+            // 限定提供データの管理で「該当なし」の場合はスキップ
+            if (category.category === '7. 限定提供データの管理' && isLimitedDataNotApplicable()) {
+              return null;
+            }
+            
+            return (
             <div key={category.category} className="mb-8">
               <h3 className="text-xl font-bold text-slate-800 mb-4">{category.category}</h3>
               
@@ -1371,7 +1419,8 @@ const Report = ({ answers, surveyData }) => {
                 );
               })}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* 詳細評価シート */}
