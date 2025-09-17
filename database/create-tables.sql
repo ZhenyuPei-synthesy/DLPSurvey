@@ -11,6 +11,3 @@ CREATE TABLE [AIAdvice_CHU$] (
     PRIMARY KEY ([回答者番号], [中項目番号])
 );
 
--- インデックス追加（検索性能向上のため）
-CREATE INDEX IX_AIAdvice_CHU_Status ON [AIAdvice_CHU$] ([status]);
-CREATE INDEX IX_AIAdvice_CHU_CreatedAt ON [AIAdvice_CHU$] ([created_at]);
