@@ -190,6 +190,13 @@ import { API_ENDPOINTS } from './config/api.js';
           if (savedAnswers.success && savedAnswers.answers && savedAnswers.answers.length > 0) {
             const loadedAnswers = {};
             
+            // 限定提供データ該当状況を復元
+            if (savedAnswers.limitedDataApplicable) {
+              const isApplicable = savedAnswers.limitedDataApplicable === "該当する";
+              setLimitedDataApplicable(isApplicable);
+              console.log('限定提供データ該当状況を復元:', savedAnswers.limitedDataApplicable, '→', isApplicable);
+            }
+            
             // questionNumberでマッチングして回答を復元
             surveyData.forEach(category => {
               category.subcategories.forEach(subcategory => {

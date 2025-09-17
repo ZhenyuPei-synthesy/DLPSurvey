@@ -133,18 +133,20 @@ namespace Company.Function
                                 await insertCmd.ExecuteNonQueryAsync();
                             }
 
-                            // 回答者テーブルのステータスを「一時保存」に更新し、回答時刻を上書きする
+                            // 回答者テーブルのステータスを「一時保存」に更新し、回答時刻と限定提供データの該当状況を保存
                             try
                             {
                                 var updateCmd = new SqlCommand(@"
                                     UPDATE [Respondent$]
                                     SET [回答ステータス] = @Status,
-                                        [回答時刻] = @AnswerTime
+                                        [回答時刻] = @AnswerTime,
+                                        [限定提供データ該当状況] = @LimitedDataApplicable
                                     WHERE [回答者番号] = @RespondentId", connection, transaction);
 
                                 // use explicit parameter types to avoid type-inference issues
                                 updateCmd.Parameters.Add(new SqlParameter("@Status", System.Data.SqlDbType.NVarChar, 50) { Value = "一時保存" });
                                 updateCmd.Parameters.Add(new SqlParameter("@AnswerTime", System.Data.SqlDbType.DateTime2) { Value = GetJapanNow() });
+                                updateCmd.Parameters.Add(new SqlParameter("@LimitedDataApplicable", System.Data.SqlDbType.NVarChar, 50) { Value = requestData.LimitedDataApplicable ? "該当する" : "該当しない" });
 
                                 // Try to pass RespondentId as INT when possible (common schema), otherwise fall back to string
                                 SqlParameter respondentParam = new SqlParameter("@RespondentId", System.Data.SqlDbType.Int);
@@ -172,8 +174,8 @@ namespace Company.Function
                             }
                             catch (Exception ex)
                             {
-                                // ステータス/時刻更新が失敗しても一時保存自体は成功として扱うがログは残す
-                                _logger.LogWarning(ex, "Failed to update respondent status/timestamp to 一時保存 for {RespondentId}. Exception: {Message}", requestData?.RespondentId, ex.Message);
+                                // ステータス/時刻/限定提供データ該当状況更新が失敗しても一時保存自体は成功として扱うがログは残す
+                                _logger.LogWarning(ex, "Failed to update respondent status/timestamp/limitedDataApplicable to 一時保存 for {RespondentId}. Exception: {Message}", requestData?.RespondentId, ex.Message);
                             }
                             
                             transaction.Commit();

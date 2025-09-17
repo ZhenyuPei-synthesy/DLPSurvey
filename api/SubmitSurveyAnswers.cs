@@ -138,12 +138,12 @@ namespace Company.Function
                                 UPDATE [Respondent$]
                                 SET [回答ステータス] = @Status,
                                     [回答時刻] = @AnswerTime,
-                                    [限定提供データ該当] = @LimitedDataApplicable
+                                    [限定提供データ該当状況] = @LimitedDataApplicable
                                 WHERE [回答者番号] = @RespondentId", connection, transaction);
 
                             updateCmd.Parameters.AddWithValue("@Status", "回答済");
                             updateCmd.Parameters.AddWithValue("@AnswerTime", GetJapanNow());
-                            updateCmd.Parameters.AddWithValue("@LimitedDataApplicable", submissionData.LimitedDataApplicable);
+                            updateCmd.Parameters.AddWithValue("@LimitedDataApplicable", submissionData.LimitedDataApplicable ? "該当する" : "該当しない");
                             updateCmd.Parameters.AddWithValue("@RespondentId", submissionData.RespondentId);
 
                             await updateCmd.ExecuteNonQueryAsync();

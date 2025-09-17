@@ -57,10 +57,24 @@ namespace Company.Function
 
                 // データベースから一時保存されたデータを取得
                 var answers = new List<SavedAnswer>();
+                string? limitedDataApplicable = null;
+                
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
                     
+                    // まず回答者情報から限定提供データ該当状況を取得
+                    var respondentCmd = new SqlCommand(@"
+                        SELECT [限定提供データ該当状況]
+                        FROM [Respondent$] 
+                        WHERE [回答者番号] = @RespondentId", connection);
+                    
+                    respondentCmd.Parameters.AddWithValue("@RespondentId", respondentId);
+                    
+                    var respondentResult = await respondentCmd.ExecuteScalarAsync();
+                    limitedDataApplicable = respondentResult?.ToString();
+                    
+                    // 一時保存された回答データを取得
                     var selectCmd = new SqlCommand(@"
                         SELECT [チェック項目番号], [中項目番号], [大項目], [中項目], [チェック項目], [対策評価_回答], [コメント]
                         FROM [Answers$] 
@@ -90,6 +104,7 @@ namespace Company.Function
                 await response.WriteAsJsonAsync(new { 
                     success = true, 
                     answers = answers,
+                    limitedDataApplicable = limitedDataApplicable, // 限定提供データ該当状況を追加
                     count = answers.Count
                 });
                 
