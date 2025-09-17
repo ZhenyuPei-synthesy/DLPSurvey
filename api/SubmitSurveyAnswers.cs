@@ -133,15 +133,17 @@ namespace Company.Function
                                 await insertCmd.ExecuteNonQueryAsync();
                             }
 
-                            // 回答者テーブルのステータスを「回答済」に更新し、回答時刻を上書きする
+                            // 回答者テーブルのステータスを「回答済」に更新し、回答時刻と限定提供データの該当状況を保存
                             var updateCmd = new SqlCommand(@"
                                 UPDATE [Respondent$]
                                 SET [回答ステータス] = @Status,
-                                    [回答時刻] = @AnswerTime
+                                    [回答時刻] = @AnswerTime,
+                                    [限定提供データ該当] = @LimitedDataApplicable
                                 WHERE [回答者番号] = @RespondentId", connection, transaction);
 
                             updateCmd.Parameters.AddWithValue("@Status", "回答済");
                             updateCmd.Parameters.AddWithValue("@AnswerTime", GetJapanNow());
+                            updateCmd.Parameters.AddWithValue("@LimitedDataApplicable", submissionData.LimitedDataApplicable);
                             updateCmd.Parameters.AddWithValue("@RespondentId", submissionData.RespondentId);
 
                             await updateCmd.ExecuteNonQueryAsync();
@@ -223,6 +225,7 @@ namespace Company.Function
         {
             public string? RespondentId { get; set; }
             public List<AnswerItem>? AnswerItems { get; set; }
+            public bool LimitedDataApplicable { get; set; } = true; // 限定提供データの該当状況
         }
 
         public class AnswerItem

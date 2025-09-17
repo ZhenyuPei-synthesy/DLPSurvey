@@ -17,6 +17,35 @@ import { parseExcelDataToJson } from './parser.js';
   // 限定提供データの該当状態管理
   const [limitedDataApplicable, setLimitedDataApplicable] = useState(true); // true: 該当する, false: 該当しない
   
+  // 限定提供データの該当状況変更時の処理
+  const handleLimitedDataApplicableChange = (isApplicable) => {
+    setLimitedDataApplicable(isApplicable);
+    
+    // 「該当しない」を選択した場合、既存の回答をクリア
+    if (!isApplicable) {
+      const newAnswers = { ...answers };
+      let hasCleared = false;
+      
+      surveyData.forEach(category => {
+        if (category.category === '7. 限定提供データの管理') {
+          category.subcategories.forEach(subcategory => {
+            subcategory.items.forEach(item => {
+              if (newAnswers[item.id]) {
+                delete newAnswers[item.id];
+                hasCleared = true;
+              }
+            });
+          });
+        }
+      });
+      
+      if (hasCleared) {
+        setAnswers(newAnswers);
+        console.log('限定提供データの管理の回答をクリアしました');
+      }
+    }
+  };
+  
   // AI評価状態管理
   const [aiEvaluationStatus, setAiEvaluationStatus] = useState({});
   // key: subcategoryName, value: { status: 'pending'|'evaluating'|'completed'|'error', evaluationText: string, recommendationText: string, isLocked: boolean, isEditing: boolean }
@@ -560,7 +589,8 @@ import { parseExcelDataToJson } from './parser.js';
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           respondentId: currentRespondentId,
-          answerItems: answerItems
+          answerItems: answerItems,
+          limitedDataApplicable: limitedDataApplicable // 限定提供データの該当状況を追加
         }),
       });
 
@@ -649,7 +679,8 @@ import { parseExcelDataToJson } from './parser.js';
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           respondentId: currentRespondentId,
-          answerItems: answerItems
+          answerItems: answerItems,
+          limitedDataApplicable: limitedDataApplicable // 限定提供データの該当状況を追加
         }),
       });
 
@@ -882,7 +913,7 @@ import { parseExcelDataToJson } from './parser.js';
                                 name="limitedDataApplicable"
                                 value="true"
                                 checked={limitedDataApplicable === true}
-                                onChange={(e) => setLimitedDataApplicable(true)}
+                                onChange={(e) => handleLimitedDataApplicableChange(true)}
                                 className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                               />
                               <span className="text-sm font-medium text-gray-900">該当する（質問に回答します）</span>
@@ -893,7 +924,7 @@ import { parseExcelDataToJson } from './parser.js';
                                 name="limitedDataApplicable"
                                 value="false"
                                 checked={limitedDataApplicable === false}
-                                onChange={(e) => setLimitedDataApplicable(false)}
+                                onChange={(e) => handleLimitedDataApplicableChange(false)}
                                 className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                               />
                               <span className="text-sm font-medium text-gray-900">該当しない（質問をスキップします）</span>
