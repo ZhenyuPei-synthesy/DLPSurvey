@@ -55,15 +55,15 @@ namespace Company.Function
                 }
 
                 string? respondentId = null;
-                string? status = null;
+                string? registrationAndDownloadStatus = null;
 
-                // アセスメント番号で回答者番号と回答ステータスを検索
+                // アセスメント番号で回答者番号と回答者情報登録及びダウンロードを検索
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
                     
                     var selectCmd = new SqlCommand(@"
-                        SELECT TOP 1 [回答者番号], [回答ステータス]
+                        SELECT TOP 1 [回答者番号], [回答者情報登録及びダウンロード]
                         FROM [Respondent$]
                         WHERE [回答番号] = @AnswerNumber 
                         ORDER BY [作成日時] DESC", connection);
@@ -75,7 +75,7 @@ namespace Company.Function
                         if (await reader.ReadAsync())
                         {
                             respondentId = reader["回答者番号"]?.ToString();
-                            status = reader["回答ステータス"]?.ToString();
+                            registrationAndDownloadStatus = reader["回答者情報登録及びダウンロード"]?.ToString();
                         }
                     }
                 }
@@ -90,20 +90,20 @@ namespace Company.Function
                     return response;
                 }
 
-                // 回答ステータスが「回答済」の場合は専用メッセージを返す
-                // if (status == "回答済")
-                //                 {
-                //                     response.StatusCode = HttpStatusCode.OK;
-                //                     await response.WriteAsJsonAsync(new { 
-                //                         success = false,
-                //                         completed = true, 
-                //                         error = "このアンケートは既に回答が完了しています。ご協力ありがとうございました。" 
-                //                     });
-                //                     return response;
-                //                 }
+                // 回答者情報登録及びダウンロードが「登録及びダウンロード済み」の場合は専用メッセージを返す
+                if (registrationAndDownloadStatus == "登録及びダウンロード済み")
+                {
+                    response.StatusCode = HttpStatusCode.OK;
+                    await response.WriteAsJsonAsync(new { 
+                        success = false,
+                        completed = true, 
+                        error = "このアンケートは既に回答が完了しています。ご協力ありがとうございました。" 
+                    });
+                    return response;
+                }
 
                 // 回答ステータスが「一時保存」でない場合
-                if (status != "一時保存" && status != "回答済")
+                /*if (status != "一時保存" && status != "回答済")
                 {
                     response.StatusCode = HttpStatusCode.BadRequest;
                     await response.WriteAsJsonAsync(new { 
@@ -111,7 +111,7 @@ namespace Company.Function
                         error = "This survey is not available for resumption" 
                     });
                     return response;
-                }
+                }*/
 
                 response.StatusCode = HttpStatusCode.OK;
                 await response.WriteAsJsonAsync(new { 
