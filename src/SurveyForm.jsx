@@ -773,6 +773,11 @@ import { parseExcelDataToJson } from './parser.js';
     let answeredQuestions = 0;
 
     surveyData.forEach(category => {
+      // 限定提供データで「該当しない」場合はスキップ
+      if (category.category === '7. 限定提供データの管理' && limitedDataApplicable === false) {
+        return;
+      }
+      
       category.subcategories.forEach(subcategory => {
         subcategory.items.forEach(item => {
           totalQuestions++;
@@ -818,11 +823,14 @@ import { parseExcelDataToJson } from './parser.js';
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             {surveyData.map((category) => {
+              // 限定提供データで「該当しない」場合は質問数を0にする
+              const isLimitedDataNotApplicable = category.category === '7. 限定提供データの管理' && limitedDataApplicable === false;
+              
               // 各大項目の質問数を合計 (中項目内のitems数を集計)
-              const questionCount = (category.subcategories || []).reduce((acc, sc) => acc + ((sc.items && sc.items.length) || 0), 0);
+              const questionCount = isLimitedDataNotApplicable ? 0 : (category.subcategories || []).reduce((acc, sc) => acc + ((sc.items && sc.items.length) || 0), 0);
 
               // カテゴリ内の回答済み質問数を計算
-              const answeredInCategory = (category.subcategories || []).reduce((acc, sc) => {
+              const answeredInCategory = isLimitedDataNotApplicable ? 0 : (category.subcategories || []).reduce((acc, sc) => {
                 return acc + (sc.items || []).filter(item => {
                   const answer = answers[item.id];
                   return answer && answer.score !== undefined;
@@ -830,9 +838,11 @@ import { parseExcelDataToJson } from './parser.js';
               }, 0);
 
               // 進捗表示テキストを生成
-              const progressText = answeredInCategory === 0
-                ? `(${questionCount}問)`
-                : `(${answeredInCategory}/${questionCount}問)`;
+              const progressText = isLimitedDataNotApplicable 
+                ? '(該当なし)'
+                : answeredInCategory === 0
+                  ? `(${questionCount}問)`
+                  : `(${answeredInCategory}/${questionCount}問)`;
 
               return (
                 <div key={category.category} className="border border-gray-200 rounded-lg shadow-sm bg-white">
@@ -1051,8 +1061,6 @@ import { parseExcelDataToJson } from './parser.js';
                           })}
                         </div>
                       </div>
-                    ))}
-                    
                     ))}
                     </>
                     )} {/* 限定提供データ質問表示の条件分岐終了 */}
