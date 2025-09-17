@@ -253,6 +253,7 @@ namespace Company.Function
         {
             public string? RespondentId { get; set; }
             public List<AnswerItem>? AnswerItems { get; set; }
+            public bool LimitedDataApplicable { get; set; } = true; // 限定提供データの該当状況
         }
 
         public class AnswerItem

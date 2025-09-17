@@ -1,6 +1,7 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
-import { parseExcelDataToJson } from './parser.js'; 
+import { parseExcelDataToJson } from './parser.js';
+import { API_ENDPOINTS } from './config/api.js'; 
 
   const SurveyForm = forwardRef(({ respondentId, onComplete, onTemporarySaved }, ref) => {
   const [surveyData, setSurveyData] = useState([]);
@@ -18,23 +19,32 @@ import { parseExcelDataToJson } from './parser.js';
   const [limitedDataApplicable, setLimitedDataApplicable] = useState(true); // true: 該当する, false: 該当しない
   
   // 限定提供データの該当状況変更時の処理
-  const handleLimitedDataApplicableChange = (isApplicable) => {
+  const handleLimitedDataApplicableChange = async (isApplicable) => {
     setLimitedDataApplicable(isApplicable);
     
-    // 「該当しない」を選択した場合、既存の回答をクリア
+    // 「該当しない」を選択した場合、既存の回答とAI評価ステータスをクリア
     if (!isApplicable) {
       const newAnswers = { ...answers };
+      const newAiEvaluationStatus = { ...aiEvaluationStatus };
       let hasCleared = false;
+      let hasAiStatusCleared = false;
       
       surveyData.forEach(category => {
         if (category.category === '7. 限定提供データの管理') {
           category.subcategories.forEach(subcategory => {
+            // 回答データをクリア
             subcategory.items.forEach(item => {
               if (newAnswers[item.id]) {
                 delete newAnswers[item.id];
                 hasCleared = true;
               }
             });
+            
+            // AI評価ステータスをクリア
+            if (newAiEvaluationStatus[subcategory.name]) {
+              delete newAiEvaluationStatus[subcategory.name];
+              hasAiStatusCleared = true;
+            }
           });
         }
       });
@@ -43,6 +53,46 @@ import { parseExcelDataToJson } from './parser.js';
         setAnswers(newAnswers);
         console.log('限定提供データの管理の回答をクリアしました');
       }
+      
+      if (hasAiStatusCleared) {
+        setAiEvaluationStatus(newAiEvaluationStatus);
+        console.log('限定提供データの管理のAI評価ステータスをクリアしました');
+      }
+      
+      // データベースからAI評価結果を削除
+      await deleteAIEvaluationsFromDB();
+    }
+  };
+  
+  // データベースからAI評価結果を削除する関数
+  const deleteAIEvaluationsFromDB = async () => {
+    try {
+      const storedRespondentId = sessionStorage.getItem('respondentId');
+      const currentRespondentId = storedRespondentId || respondentId;
+      
+      if (!currentRespondentId) {
+        console.warn('回答者IDが見つからないため、AI評価の削除をスキップします');
+        return;
+      }
+      
+      const deleteUrl = `${API_ENDPOINTS.DELETE_AI_EVALUATIONS}?respondentId=${currentRespondentId}&category=7. 限定提供データの管理`;
+      
+      const response = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('AI評価結果をデータベースから削除しました:', result);
+      } else {
+        console.warn('AI評価結果の削除でHTTPエラー:', response.status);
+      }
+    } catch (error) {
+      console.error('AI評価結果の削除中にエラーが発生しました:', error);
+      // エラーが発生してもユーザー操作は継続
     }
   };
   
@@ -943,9 +993,10 @@ import { parseExcelDataToJson } from './parser.js';
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-bold text-slate-700">{subcategory.name}</h3>
                           
-                          {/* AI評価ボタン */}
+                          {/* AI評価ボタン（限定提供データで非該当の場合は表示しない） */}
                           <div className="flex items-center space-x-2">
-                            {isSubcategoryCompleted(subcategory) && (
+                            {isSubcategoryCompleted(subcategory) && 
+                             !(category.category === '7. 限定提供データの管理' && limitedDataApplicable === false) && (
                               <>
                                 {/* 評価中 */}
                                 {aiEvaluationStatus[subcategory.name]?.status === 'evaluating' && (
@@ -1113,17 +1164,16 @@ import { parseExcelDataToJson } from './parser.js';
               >
                 {isSavingTemporary ? '保存中...' : '一時保存'}
               </button>
-              
-              <button
+
+              {/*<button
                 type="submit"
                 disabled={isSubmitting}
                 className="px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? '送信中...' : '回答を送信'}
-              </button>
-              
+              </button>*/}
 
-              {/*<div title={answeredQuestions !== totalQuestions ? "すべての質問に回答すると送信ボタンがクリックできます" : ""}>
+              <div title={answeredQuestions !== totalQuestions ? "すべての質問に回答すると送信ボタンがクリックできます" : ""}>
                 <button
                   type="submit"
                   disabled={isSubmitting || answeredQuestions !== totalQuestions}
@@ -1132,7 +1182,7 @@ import { parseExcelDataToJson } from './parser.js';
                 >
                   {isSubmitting ? '送信中...' : '回答を送信'}
                 </button>
-              </div>*/}
+              </div>
               
 
             </div>

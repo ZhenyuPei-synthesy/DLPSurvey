@@ -1,10 +1,8 @@
--- create-tables.sql
--- AI中項目評価テーブル（AI評価機能用）
--- このテーブルは中項目ごとのAI評価結果を保存します
-
 CREATE TABLE [AIAdvice_CHU$] (
     [回答者番号] NVARCHAR(100) NOT NULL,
     [中項目番号] NVARCHAR(50) NOT NULL,
+    [average_score] DECIMAL(5, 2) NULL, -- 中項目毎の平均スコアを格納 (例: 3.75)
+    [is_applicable] BIT NOT NULL DEFAULT 1, -- 評価対象か否か (1: 該当する, 0: 該当しない)
     [status] NVARCHAR(20) NOT NULL DEFAULT 'pending', -- pending, evaluating, completed, error
     [evaluation_text] NTEXT NULL,
     [recommendation_text] NTEXT NULL,
