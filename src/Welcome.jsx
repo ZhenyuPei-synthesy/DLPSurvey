@@ -362,7 +362,7 @@ const Welcome = ({ onNext }) => {
 
         {/* 特典セクション */}
         <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
-          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">ご協力いただきたい企業向け特典</h2>
+          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">ご協力いただいた企業向け特典</h2>
           
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
