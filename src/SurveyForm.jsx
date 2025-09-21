@@ -1,10 +1,13 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
-import { parseExcelDataToJson } from './parser.js';
+import { parseExcelDataToJson, applyDepartmentFilter, getAvailableDepartments } from './parser.js';
 import { API_ENDPOINTS } from './config/api.js'; 
 
   const SurveyForm = forwardRef(({ respondentId, onComplete, onTemporarySaved }, ref) => {
   const [surveyData, setSurveyData] = useState([]);
+  const [originalSurveyData, setOriginalSurveyData] = useState([]); // フィルタ前の元データ
+  const [availableDepartments, setAvailableDepartments] = useState(['すべて']);
+  const [selectedDepartment, setSelectedDepartment] = useState('すべて');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -29,7 +32,7 @@ import { API_ENDPOINTS } from './config/api.js';
       let hasCleared = false;
       let hasAiStatusCleared = false;
       
-      surveyData.forEach(category => {
+      originalSurveyData.forEach(category => {
         if (category.category === '7. 限定提供データの管理') {
           category.subcategories.forEach(subcategory => {
             // 回答データをクリア
@@ -155,7 +158,14 @@ import { API_ENDPOINTS } from './config/api.js';
         console.log('🚀 Step 8: Sample structured data:', structuredData?.[0]); // 最初のカテゴリだけ表示
         
         console.log('🚀 Step 9: Setting survey data...'); // デバッグ用
+        setOriginalSurveyData(structuredData);            // ★ 元データを保存
         setSurveyData(structuredData);                     // ★ 変換後のデータをセット
+        
+        // 利用可能な部門一覧を取得
+        const departments = getAvailableDepartments(structuredData);
+        setAvailableDepartments(departments);
+        console.log('🚀 Available departments:', departments); // デバッグ用
+        
         console.log('🚀 Step 10: Survey data set successfully!'); // デバッグ用
         
       } catch (err) {
@@ -170,6 +180,18 @@ import { API_ENDPOINTS } from './config/api.js';
     fetchSurveyData();
   }, []); // 空の依存配列で、コンポーネントのマウント時に一度だけ実行
 
+  // 部門フィルター変更時の処理
+  const handleDepartmentChange = (department) => {
+    setSelectedDepartment(department);
+    
+    // フィルタリングを適用
+    const filteredData = applyDepartmentFilter(originalSurveyData, department);
+    setSurveyData(filteredData);
+    
+    console.log(`🔧 Department filter changed to: ${department}`);
+    console.log(`🔧 Filtered data categories: ${filteredData.length}`);
+  };
+
   // 一時保存された回答を読み込む
   useEffect(() => {
     const loadSavedAnswers = async () => {
@@ -177,7 +199,7 @@ import { API_ENDPOINTS } from './config/api.js';
         const storedRespondentId = sessionStorage.getItem('respondentId');
         const currentRespondentId = storedRespondentId || respondentId;
         
-        if (!currentRespondentId || surveyData.length === 0) return;
+        if (!currentRespondentId || originalSurveyData.length === 0) return;
 
         const apiUrl = import.meta.env.MODE === 'development' 
           ? '/api/LoadAnswersTemporary'
@@ -198,7 +220,7 @@ import { API_ENDPOINTS } from './config/api.js';
             }
             
             // questionNumberでマッチングして回答を復元
-            surveyData.forEach(category => {
+            originalSurveyData.forEach(category => {
               category.subcategories.forEach(subcategory => {
                 subcategory.items.forEach(item => {
                   const savedAnswer = savedAnswers.answers.find(saved => {
@@ -254,7 +276,7 @@ import { API_ENDPOINTS } from './config/api.js';
     if (surveyData.length > 0) {
       loadSavedAnswers();
     }
-  }, [surveyData, respondentId]);
+  }, [originalSurveyData, respondentId]);
 
   // AI評価状態の復元
   useEffect(() => {
@@ -263,7 +285,7 @@ import { API_ENDPOINTS } from './config/api.js';
         const storedRespondentId = sessionStorage.getItem('respondentId');
         const currentRespondentId = storedRespondentId || respondentId;
         
-        if (!currentRespondentId || surveyData.length === 0) return;
+        if (!currentRespondentId || originalSurveyData.length === 0) return;
 
         const apiUrl = import.meta.env.MODE === 'development' 
           ? '/api/GetEvaluationStatus'
@@ -277,7 +299,7 @@ import { API_ENDPOINTS } from './config/api.js';
             const restoredEvaluationStatus = {};
             
             // 中項目番号と名前をマッピング
-            surveyData.forEach(category => {
+            originalSurveyData.forEach(category => {
               category.subcategories.forEach(subcategory => {
                 const subcategoryId = subcategory.items[0]?.chuItemNumber;
                 if (subcategoryId) {
@@ -312,10 +334,10 @@ import { API_ENDPOINTS } from './config/api.js';
       }
     };
 
-    if (surveyData.length > 0) {
+    if (originalSurveyData.length > 0) {
       loadAiEvaluationStatus();
     }
-  }, [surveyData, respondentId]);
+  }, [originalSurveyData, respondentId]);
 
   const toggleSection = (categoryName) => {
     setOpenSections(prev => ({ ...prev, [categoryName]: !prev[categoryName] }));
@@ -338,7 +360,7 @@ import { API_ENDPOINTS } from './config/api.js';
 
   // 中項目完了時の自動AI評価開始チェック
   const checkAndStartAutoEvaluation = (currentAnswers) => {
-    surveyData.forEach(category => {
+    originalSurveyData.forEach(category => {
       category.subcategories.forEach(subcategory => {
         // 新しい回答で完了判定
         const isNowCompleted = subcategory.items.every(item => {
@@ -604,8 +626,8 @@ import { API_ENDPOINTS } from './config/api.js';
       // 回答データを整理してAPIに送信する形式に変換（全項目を送信、未回答はNULL）
       const answerItems = [];
 
-      // surveyDataから質問情報を取得し、answersと組み合わせる（全項目をループ）
-      surveyData.forEach(category => {
+      // originalSurveyDataから質問情報を取得し、answersと組み合わせる（全項目をループ）
+      originalSurveyData.forEach(category => {
         // 限定提供データで「該当しない」場合はスキップ
         if (category.category === '7. 限定提供データの管理' && limitedDataApplicable === false) {
           return;
@@ -655,7 +677,7 @@ import { API_ENDPOINTS } from './config/api.js';
         setSubmissionStatus('success');
         // アンケート回答完了後、レポート画面に遷移
         setTimeout(() => {
-          onComplete(answers, surveyData);
+          onComplete(answers, originalSurveyData);
         }, 1000);
       } else {
         setSubmissionStatus('error');
@@ -693,8 +715,8 @@ import { API_ENDPOINTS } from './config/api.js';
       // 回答データを整理してAPIに送信する形式に変換（全項目を送信、未回答も含む）
       const answerItems = [];
 
-      // surveyDataから質問情報を取得し、answersと組み合わせる（全項目をループ）
-      surveyData.forEach(category => {
+      // originalSurveyDataから質問情報を取得し、answersと組み合わせる（全項目をループ）
+      originalSurveyData.forEach(category => {
         category.subcategories.forEach(subcategory => {
           subcategory.items.forEach(item => {
             const answer = answers[item.id];
@@ -782,8 +804,8 @@ import { API_ENDPOINTS } from './config/api.js';
         // 回答データを整理してAPIに送信する形式に変換
         const answerItems = [];
 
-        // surveyDataから質問情報を取得し、answersと組み合わせる
-        surveyData.forEach(category => {
+        // originalSurveyDataから質問情報を取得し、answersと組み合わせる
+        originalSurveyData.forEach(category => {
           category.subcategories.forEach(subcategory => {
             subcategory.items.forEach(item => {
               const answer = answers[item.id];
@@ -841,7 +863,7 @@ import { API_ENDPOINTS } from './config/api.js';
         console.error("自動保存中にエラーが発生しました:", err);
       }
     }
-  }), [surveyData, answers, respondentId]);
+  }), [originalSurveyData, answers, respondentId]);
 
   if (loading) {
     return (
@@ -860,7 +882,7 @@ import { API_ENDPOINTS } from './config/api.js';
     let totalQuestions = 0;
     let answeredQuestions = 0;
 
-    surveyData.forEach(category => {
+    originalSurveyData.forEach(category => {
       // 限定提供データで「該当しない」場合はスキップ
       if (category.category === '7. 限定提供データの管理' && limitedDataApplicable === false) {
         return;
@@ -905,8 +927,33 @@ import { API_ENDPOINTS } from './config/api.js';
         </div>
       </div>
 
-      {/* メインコンテンツ - 固定ヘッダー分のパディングを追加 */}
-      <div className="p-4 sm:p-8" style={{ paddingTop: '5rem' }}>
+      {/* 部門フィルター */}
+      <div className="fixed top-64 left-0 right-0 z-10 bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-3">
+          <div className="flex items-center space-x-4">
+            <span className="text-gray-700 font-medium text-sm whitespace-nowrap">想定回答部門:</span>
+            <div className="flex flex-wrap gap-2">
+              {availableDepartments.map((department) => (
+                <button
+                  key={department}
+                  type="button"
+                  onClick={() => handleDepartmentChange(department)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                    selectedDepartment === department
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {department}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* メインコンテンツ - 固定ヘッダー分のパディングを増やす */}
+      <div className="p-4 sm:p-8" style={{ paddingTop: '8rem' }}>
         <div className="max-w-4xl mx-auto">
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">

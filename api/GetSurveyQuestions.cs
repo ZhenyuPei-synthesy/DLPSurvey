@@ -110,6 +110,7 @@ SELECT
     t.[チェック項目] AS CheckItem,
     t.[リスク] AS Risk,
     t.[関連法規] AS RelatedLaw,
+    t.[想定回答部門] AS TargetDepartment,
     o.[対策評価] AS OptionRaw
 FROM dbo.[{templateTable}] t
 LEFT JOIN dbo.[{optionsTable}] o ON t.[{joinCol}] = o.[{joinCol}]
@@ -134,6 +135,7 @@ ORDER BY t.[{joinCol}], o.[対策評価]";
                                         CheckItem = reader["CheckItem"]?.ToString() ?? string.Empty,
                                         Risk = reader["Risk"]?.ToString() ?? string.Empty,
                                         RelatedLaw = reader["RelatedLaw"]?.ToString() ?? string.Empty,
+                                        TargetDepartment = reader["TargetDepartment"]?.ToString() ?? string.Empty,
                                         Options = new List<Option>()
                                     };
                                     map[qnum] = q;
@@ -230,6 +232,7 @@ ORDER BY t.[{joinCol}], o.[対策評価]";
             public string? TargetEvaluation { get; set; }
             public string? Risk { get; set; }
             public string? RelatedLaw { get; set; }
+            public string? TargetDepartment { get; set; }
             public List<Option>? Options { get; set; }
         }
 

@@ -120,6 +120,7 @@ export const parseExcelDataToJson = (data) => {
         // 必要ならリスクを最新値で更新（ファイル上は同一なので任意）
         if (!existingItem.risk && row.Risk) existingItem.risk = row.Risk;
         if (!existingItem.relatedRegulations && row.RelatedLaw) existingItem.relatedRegulations = row.RelatedLaw;
+        if (!existingItem.targetDepartment && row.TargetDepartment) existingItem.targetDepartment = row.TargetDepartment;
       } else {
         subcategory.items.push({
           id: `check-item-${itemId++}`,
@@ -128,6 +129,7 @@ export const parseExcelDataToJson = (data) => {
           question: questionText, // "question"というキー名で質問文をセット
           risk: row.Risk,
           relatedRegulations: row.RelatedLaw,
+          targetDepartment: row.TargetDepartment || '', // 想定回答部門を追加
           options: parsedOptions
         });
       }
@@ -140,6 +142,7 @@ export const parseExcelDataToJson = (data) => {
         question: row.CheckItem || '（質問文なし）',
         risk: row.Risk || '',
         relatedRegulations: row.RelatedLaw || '',
+        targetDepartment: row.TargetDepartment || '', // 想定回答部門を追加
         options: []
       });
     }
@@ -153,4 +156,67 @@ export const parseExcelDataToJson = (data) => {
   console.log('🔧 Parser: First category sample:', result[0]);
 
   return result;
+};
+
+/**
+ * 部門フィルターを適用して、指定した部門の質問のみを表示します。
+ * @param {Array<Object>} structuredData - parseExcelDataToJsonで変換されたデータ
+ * @param {string} selectedDepartment - 選択された部門名（"すべて"の場合は全て表示）
+ * @returns {Array<Object>} フィルタリングされたデータ
+ */
+export const applyDepartmentFilter = (structuredData, selectedDepartment) => {
+  if (!structuredData || !Array.isArray(structuredData)) {
+    return [];
+  }
+
+  // "すべて"が選択された場合はフィルタリングしない
+  if (selectedDepartment === 'すべて') {
+    return structuredData;
+  }
+
+  // フィルタリングを適用
+  return structuredData.map(category => ({
+    ...category,
+    subcategories: category.subcategories.map(subcategory => ({
+      ...subcategory,
+      items: subcategory.items.filter(item => {
+        // 想定回答部門が指定した部門と一致する場合、または部門が未設定の場合は表示
+        return !item.targetDepartment || 
+               item.targetDepartment === selectedDepartment ||
+               item.targetDepartment.includes(selectedDepartment);
+      })
+    })).filter(subcategory => subcategory.items.length > 0) // 質問が1つもない中項目は除外
+  })).filter(category => category.subcategories.length > 0); // 中項目が1つもない大項目は除外
+};
+
+/**
+ * 利用可能な部門一覧を取得します。
+ * @param {Array<Object>} structuredData - parseExcelDataToJsonで変換されたデータ
+ * @returns {Array<string>} 部門名の配列
+ */
+export const getAvailableDepartments = (structuredData) => {
+  if (!structuredData || !Array.isArray(structuredData)) {
+    return ['すべて'];
+  }
+
+  const departments = new Set(['すべて']);
+
+  structuredData.forEach(category => {
+    category.subcategories.forEach(subcategory => {
+      subcategory.items.forEach(item => {
+        if (item.targetDepartment && item.targetDepartment.trim() !== '') {
+          // 複数部門が含まれている場合は分割
+          const depts = item.targetDepartment.split(/[,、]/);
+          depts.forEach(dept => {
+            const trimmed = dept.trim();
+            if (trimmed) {
+              departments.add(trimmed);
+            }
+          });
+        }
+      });
+    });
+  });
+
+  return Array.from(departments);
 };
