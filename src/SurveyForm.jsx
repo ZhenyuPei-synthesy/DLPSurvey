@@ -1,4 +1,4 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
 import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 import { parseExcelDataToJson, applyDepartmentFilter, getAvailableDepartments } from './parser.js';
 import { API_ENDPOINTS } from './config/api.js'; 
@@ -17,6 +17,10 @@ import { API_ENDPOINTS } from './config/api.js';
   const [submissionStatus, setSubmissionStatus] = useState(null);
   const [isSavingTemporary, setIsSavingTemporary] = useState(false);
   const [tempSaveStatus, setTempSaveStatus] = useState(null);
+  const [departmentFilterHeight, setDepartmentFilterHeight] = useState(0);
+  
+  // 部門フィルターのref
+  const departmentFilterRef = useRef(null);
   
   // 限定提供データの該当状態管理
   const [limitedDataApplicable, setLimitedDataApplicable] = useState(true); // true: 該当する, false: 該当しない
@@ -338,6 +342,41 @@ import { API_ENDPOINTS } from './config/api.js';
       loadAiEvaluationStatus();
     }
   }, [originalSurveyData, respondentId]);
+
+  // 部門フィルターの高さを監視
+  useEffect(() => {
+    const updateDepartmentFilterHeight = () => {
+      if (departmentFilterRef.current) {
+        const height = departmentFilterRef.current.offsetHeight;
+        setDepartmentFilterHeight(height);
+      }
+    };
+
+    // 初期高さ設定
+    updateDepartmentFilterHeight();
+
+    // ウィンドウリサイズ時に高さを再計算
+    window.addEventListener('resize', updateDepartmentFilterHeight);
+    
+    // MutationObserverで部門フィルターの内容変更を監視
+    if (departmentFilterRef.current) {
+      const observer = new MutationObserver(updateDepartmentFilterHeight);
+      observer.observe(departmentFilterRef.current, {
+        childList: true,
+        subtree: true,
+        attributes: true
+      });
+      
+      return () => {
+        window.removeEventListener('resize', updateDepartmentFilterHeight);
+        observer.disconnect();
+      };
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateDepartmentFilterHeight);
+    };
+  }, [availableDepartments, selectedDepartment]);
 
   const toggleSection = (categoryName) => {
     setOpenSections(prev => ({ ...prev, [categoryName]: !prev[categoryName] }));
@@ -964,7 +1003,10 @@ import { API_ENDPOINTS } from './config/api.js';
       </div>
 
       {/* 部門フィルター */}
-      <div className="fixed top-64 left-0 right-0 z-10 bg-white border-b border-gray-100 shadow-sm">
+      <div 
+        ref={departmentFilterRef}
+        className="fixed top-64 left-0 right-0 z-10 bg-white border-b border-gray-100 shadow-sm"
+      >
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center space-x-4">
             <span className="text-gray-700 font-medium text-sm whitespace-nowrap">想定回答部門:</span>
@@ -998,8 +1040,13 @@ import { API_ENDPOINTS } from './config/api.js';
         </div>
       </div>
 
-      {/* メインコンテンツ - 固定ヘッダー分のパディングを増やす */}
-      <div className="p-4 sm:p-8" style={{ paddingTop: '8rem' }}>
+      {/* メインコンテンツ - 固定ヘッダー分のパディングを動的に調整 */}
+      <div 
+        className="p-4 sm:p-8" 
+        style={{ 
+          paddingTop: `${80 + departmentFilterHeight}px` // top-64 (256px) + 部門フィルター高さ
+        }}
+      >
         <div className="max-w-4xl mx-auto">
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
