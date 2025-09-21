@@ -902,6 +902,42 @@ import { API_ENDPOINTS } from './config/api.js';
     return { answeredQuestions, totalQuestions };
   };
 
+  // 部門別の回答進捗を計算
+  const calculateDepartmentProgress = (department) => {
+    if (department === 'すべて') {
+      return { answeredQuestions: 0, totalQuestions: 0 }; // すべての場合は表示しない
+    }
+
+    let totalQuestions = 0;
+    let answeredQuestions = 0;
+
+    originalSurveyData.forEach(category => {
+      // 限定提供データで「該当しない」場合はスキップ
+      if (category.category === '7. 限定提供データの管理' && limitedDataApplicable === false) {
+        return;
+      }
+      
+      category.subcategories.forEach(subcategory => {
+        subcategory.items.forEach(item => {
+          // 当該部門の質問かどうかをチェック
+          const isTargetQuestion = !item.targetDepartment || 
+                                   item.targetDepartment === department ||
+                                   item.targetDepartment.includes(department);
+          
+          if (isTargetQuestion) {
+            totalQuestions++;
+            const answer = answers[item.id];
+            if (answer && answer.score !== undefined) {
+              answeredQuestions++;
+            }
+          }
+        });
+      });
+    });
+
+    return { answeredQuestions, totalQuestions };
+  };
+
   const { answeredQuestions, totalQuestions } = calculateProgress();
 
   return (
@@ -933,20 +969,30 @@ import { API_ENDPOINTS } from './config/api.js';
           <div className="flex items-center space-x-4">
             <span className="text-gray-700 font-medium text-sm whitespace-nowrap">想定回答部門:</span>
             <div className="flex flex-wrap gap-2">
-              {availableDepartments.map((department) => (
-                <button
-                  key={department}
-                  type="button"
-                  onClick={() => handleDepartmentChange(department)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
-                    selectedDepartment === department
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {department}
-                </button>
-              ))}
+              {availableDepartments.map((department) => {
+                const progress = calculateDepartmentProgress(department);
+                const showProgress = department !== 'すべて' && progress.totalQuestions > 0;
+                
+                return (
+                  <button
+                    key={department}
+                    type="button"
+                    onClick={() => handleDepartmentChange(department)}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                      selectedDepartment === department
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span>{department}</span>
+                    {showProgress && (
+                      <span className="ml-1 text-xs tabular-nums">
+                        ({progress.answeredQuestions}/{progress.totalQuestions})
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
