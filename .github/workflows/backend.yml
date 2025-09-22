@@ -6,7 +6,7 @@ name: -Backend-Build and deploy dotnet core app to Azure Function App - dlp-serv
 on:
   push:
     branches:
-      - 2Branch
+      - dev
   workflow_dispatch:
 
 env:

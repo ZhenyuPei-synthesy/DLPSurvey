@@ -3,7 +3,8 @@ name: -Frontend-Deploy frontend to Azure Static Web Apps
 on:
   push:
     branches:
-      - 2Branch
+      #- 2Branch # for DLPSurvey RG
+      -dev # for assessmenttool RG
   workflow_dispatch:
 
 jobs:
