@@ -6,7 +6,8 @@ name: -Backend-Build and deploy dotnet core app to Azure Function App - dlp-serv
 on:
   push:
     branches:
-      - dev
+      - 2Branch # for DLPSurvey RG
+      #-dev # for assessmenttool RG
   workflow_dispatch:
 
 env:
