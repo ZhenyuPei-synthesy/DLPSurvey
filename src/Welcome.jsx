@@ -96,7 +96,7 @@ const Welcome = ({ onNext }) => {
   const scrollToSection = (sectionKey) => {
     const element = sectionRefs[sectionKey]?.current;
     if (element) {
-      const headerOffset = 280; // ヘッダー（192px）、タブナビゲーション（60px）、マージン（28px）を考慮
+      const headerOffset = 320; // ヘッダー（192px）、タブナビゲーション（60px）、マージン（68px）を考慮
       const elementPosition = element.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
       
