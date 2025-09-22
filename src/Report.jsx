@@ -64,7 +64,6 @@ const Report = ({ answers, surveyData }) => {
   const [showRespondentForm, setShowRespondentForm] = useState(false);
   const [isDownloaded, setIsDownloaded] = useState(false); // ダウンロード完了フラグ
   const [expandedCategories, setExpandedCategories] = useState({}); // 評価軸ドロップダウンの開閉状態
-  const [showMaturityLevels, setShowMaturityLevels] = useState(false); // 成熟度のレベル定義の開閉状態
   const [respondentInfo, setRespondentInfo] = useState({
     company: '',
     department: '',
@@ -1081,103 +1080,6 @@ const Report = ({ answers, surveyData }) => {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* 成熟度のレベル定義 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <button
-            onClick={() => setShowMaturityLevels(!showMaturityLevels)}
-            className="w-full flex items-center justify-between mb-6"
-          >
-            <h2 className="text-2xl font-bold">成熟度のレベル定義</h2>
-            <svg
-              className={`w-6 h-6 transition-transform ${
-                showMaturityLevels ? 'transform rotate-180' : ''
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          
-          {showMaturityLevels && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse border border-gray-300">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-800 whitespace-nowrap" style={{width: '80px'}}>
-                      レベル
-                    </th>
-                    <th className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-800 whitespace-nowrap" style={{width: '120px'}}>
-                      名称
-                    </th>
-                    <th className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-800">
-                      組織の状態概要
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="bg-white">
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
-                      1
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
-                      無防備
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      対策が場当たり的で、ルールやプロセスが存在しない状態。個人の努力や暗黙知に依存しており、組織的な管理は行われていない。リスクの認識も限定的。
-                    </td>
-                  </tr>
-                  <tr className="bg-gray-50">
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
-                      2
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
-                      部分防御
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      一部の部門や担当者によって個別の対策が実施されているが、全社で一貫しておらず、サイロ化している状態。ルールは存在するが、非公式であったり形骸化している。
-                    </td>
-                  </tr>
-                  <tr className="bg-white">
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
-                      3
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
-                      組織的防御
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      全社的な方針やルールが文書化され、関係者に周知されている状態。対策プロセスが定義され、一貫性のある対応が可能になっているが、その効果測定は限定的。
-                    </td>
-                  </tr>
-                  <tr className="bg-gray-50">
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
-                      4
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
-                      動的防御
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      標準化されたプロセスが定着し、対策の実施状況や効果がデータに基づいて定量的に測定・評価されている状態。リスク評価に基づき、継続的な改善活動が行われている。
-                    </td>
-                  </tr>
-                  <tr className="bg-white">
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
-                      5
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-center text-sm font-medium text-gray-900 whitespace-nowrap">
-                      予測的防御
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      データ保護が組織文化として定着し、事業戦略の一部として位置づけられている状態。自動化技術などを活用して継続的な改善が自律的に行われ、脅威に対しプロアクティブに対応できる。
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
 
         {/* 中項目別総評コメント */}
