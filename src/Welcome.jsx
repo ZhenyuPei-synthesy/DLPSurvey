@@ -19,6 +19,7 @@ const Welcome = ({ onNext }) => {
   const [showResumeForm, setShowResumeForm] = useState(false);
   const [resumeInputs, setResumeInputs] = useState({ answerNumber: '' });
   const [resumeError, setResumeError] = useState(null);
+  const [showEvaluationAxis, setShowEvaluationAxis] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
   // 免責事項とプライバシーポリシー関連
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -358,6 +359,156 @@ const Welcome = ({ onNext }) => {
               これらの公的指針を統合的に参照し、推奨される対策項目を設問形式に落とし込むことで、AI時代の脅威に対応する網羅的なアセスメントを作成しています。
             </p>
           </div>
+        </div>
+
+        {/* 評価軸について */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+          <button
+            onClick={() => setShowEvaluationAxis(!showEvaluationAxis)}
+            className="w-full flex items-center justify-between mb-6"
+          >
+            <h2 className="text-2xl font-bold">評価軸について</h2>
+            <svg
+              className={`w-6 h-6 transition-transform ${
+                showEvaluationAxis ? 'transform rotate-180' : ''
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {showEvaluationAxis && (
+            <div>
+              {surveyData.map((category) => {
+                // カテゴリごとの詳細説明を定義
+                const getCategoryDescription = (categoryName) => {
+                  switch(categoryName) {
+                    case '1. 全社的・組織的管理':
+                      return {
+                        definition: '経営層のリーダーシップのもと、全社横断的な体制を構築し、情報管理に関する方針や規程を定め、継続的に運用・改善していくことです。これは、データセキュリティを個別の技術的問題ではなく、企業価値の維持・向上に直結する経営課題として捉えるアプローチです。',
+                        points: [
+                          '経営層の主導：経営層がデータセキュリティへの取り組み姿勢を明確に示し、必要なリソース（予算・人員）を確保することが不可欠です。',
+                          '部門横断的な体制構築：IT、法務、人事、各事業部門などから成る部門横断的なチーム（例：秘密情報管理委員会）を設置し、全社的な意思決定と連携を図ります。',
+                          '方針と規程の策定：守るべき情報の特定、分類基準、取り扱いルールなどを盛り込んだ全社的な情報管理規程を策定し、全従業員に周知徹底します。',
+                          '戦略的な目標設定：自社のリスク許容度を明確にし、データセキュリティ対策によって何を実現するのか、具体的な成功指標を定義して取り組みます。'
+                        ]
+                      };
+                    case '2. 人的管理':
+                      return {
+                        definition: '従業員や役員など、情報にアクセスするすべての人々に対し、教育・訓練を実施し、秘密保持に関する意識を高め、規律を遵守させるための管理策です。情報漏洩の多くは内部関係者に起因するため、最も重要な対策の一つとされています。',
+                        points: [
+                          '契約・誓約による義務の明確化：入社時から退職時に至るまで、秘密保持に関する誓約書や契約を締結し、従業員が負うべき法的義務を明確に認識させます。',
+                          '継続的な教育と意識向上：情報セキュリティに関する研修を定期的に実施し、情報漏洩のリスクや社内ルール、具体的な事例などを周知することで、従業員のセキュリティ意識を高めます。',
+                          '退職者管理の徹底：従業員の退職時には、貸与したPCや記録媒体を確実に返却させ、システムへのアクセス権限を速やかに削除します。',
+                          '信頼関係の構築：公平な人事評価や働きやすい職場環境を整備することで、従業員のエンゲージメントを高め、内部不正の動機となる不満を低減させます。'
+                        ]
+                      };
+                    case '3. 物理的管理':
+                      return {
+                        definition: '秘密情報が記録された書類、記録媒体、サーバ、製造設備などへの物理的なアクセスを制限し、盗難や不正な持ち出し、覗き見などを防ぐための管理策です。',
+                        points: [
+                          '区域管理（ゾーニング）：秘密情報を扱うエリアを特定し、施錠管理や入退室管理システムを導入して、権限のない者の立ち入りを物理的に制限します。',
+                          '媒体の施錠保管：秘密情報が記録された書類やUSBメモリなどの記録媒体は、施錠可能なキャビネットや金庫で保管します。',
+                          '持ち込み・持ち出しの制限：私物のPCやUSBメモリの業務利用や、重要情報が保管されているエリアへの持ち込みを制限します。また、退社時の手荷物検査なども有効です。',
+                          '安全な廃棄：不要になった秘密情報が記録された媒体は、シュレッダーによる裁断や専門業者による溶解・物理破壊など、復元不可能な方法で廃棄します。'
+                        ]
+                      };
+                    case '4. 技術的・IT管理':
+                      return {
+                        definition: '情報システムやネットワークの機能を活用して、データへのアクセス制御、不正アクセスの検知・防御、データの暗号化、操作履歴の記録などを行う技術的な管理策です。',
+                        points: [
+                          'アクセス制御の徹底：「知る必要のある者だけが知る（Need to know）」の原則に基づき、ID・パスワードや多要素認証で本人確認を徹底し、従業員ごとにアクセスできる情報の範囲を必要最小限に限定します。',
+                          'データの暗号化：ファイルや記録媒体、通信経路を暗号化することで、万が一データが外部に漏れても、第三者が内容を読み取ることを困難にします。',
+                          'ログの取得と監視：誰が・いつ・どの情報にアクセスしたかというログを記録・保存し、定期的に監視することで、不正なアクセスやその兆候を早期に発見します。',
+                          '漏洩対策ソリューションの導入：DLP（Data Loss Prevention）製品を導入し、メールやクラウドへのアップロードなどを監視して、機密情報の不正な外部送信を自動的に検知・ブロックします。'
+                        ]
+                      };
+                    case '5. サプライチェーン・外部連携管理':
+                      return {
+                        definition: '業務委託先、共同研究開発パートナー、子会社など、自社の秘密情報を共有する外部組織における情報管理体制を確保し、サプライチェーン全体での情報漏洩リスクを低減させるための管理策です。',
+                        points: [
+                          '取引先の事前評価：取引を開始する前に、相手方の情報セキュリティ管理体制を評価し、信頼できる事業者を選定します。',
+                          '契約による義務付け：秘密保持契約（NDA）を締結し、開示する情報の範囲、目的外利用の禁止、管理体制、再委託の条件、契約終了時の情報返却・廃棄義務などを明確に定めます。',
+                          '開示情報の最小化：外部に開示する秘密情報は、業務上真に必要なものに限定し、取扱担当者も必要最小限に絞るよう相手方に要請します。',
+                          '定期的な監査と状況確認：契約に基づき、委託先における情報管理の実施状況について定期的に報告を求め、必要に応じて監査を実施し、管理レベルが維持されていることを確認します。'
+                        ]
+                      };
+                    case '6. AI活用におけるデータ管理':
+                      return {
+                        definition: '生成AIなどのAI技術を利用する際に、入力データに秘密情報が含まれることによる意図しない情報漏洩を防ぎ、安全な利活用を実現するための管理策です。',
+                        points: [
+                          '利用ルールの策定と周知：社内でのAI利用に関する明確なガイドラインを策定し、「どのような情報を入力してはいけないか」「どのAIサービスを利用してよいか」といったルールを全従業員に周知徹底します。',
+                          'サービス内容の確認：外部の生成AIサービスを利用する際は、利用規約や契約を確認し、入力した情報がAIの学習データとして再利用されないかなど、情報の取り扱い方針を必ず確認します。',
+                          '秘密情報の入力を禁止：原則として、営業秘密、個人情報、顧客情報などの機密情報を外部の生成AIに入力することを禁止します。',
+                          '新たな脅威への対策：AIを悪用して巧妙化されたフィッシングメールなど、新たなセキュリティ脅威に対する従業員の警戒心を高めるための教育を実施します。'
+                        ]
+                      };
+                    case '7. 限定提供データの管理':
+                      return {
+                        definition: '不正競争防止法で保護される「限定提供データ」（営業秘密には当たらないが、特定の相手に提供され、電磁的に管理されている価値あるデータ）を適切に管理し、不正な取得や利用を防ぐための管理策です。',
+                        points: [
+                          '限定提供性の確保：データを特定の者にのみ提供するものであることを契約等で明確にし、提供先がさらに第三者へ無断で提供することを禁止します。',
+                          '電磁的管理性の確保：提供先以外がデータにアクセスできないように、ID・パスワードの設定や暗号化といった技術的な管理措置を講じます。',
+                          '契約による管理：データの提供・利用に関するルールを契約で詳細に定め、目的外利用や不正な複製を禁止します。',
+                          'データの特定：どのデータが限定提供データに該当するのかを組織内で明確に定義し、適切に管理対象とします。'
+                        ]
+                      };
+                    default:
+                      return {
+                        definition: `${categoryName}に関する詳細な説明がここに入ります。`,
+                        points: []
+                      };
+                  }
+                };
+
+                const categoryInfo = getCategoryDescription(category.category);
+
+                return (
+                  <div key={category.category} className="mb-6">
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-3">{category.category}</h3>
+                      
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="mb-4">
+                          <h4 className="font-semibold text-gray-800 mb-2">定義：</h4>
+                          <p className="text-gray-700 text-sm mb-4">
+                            {categoryInfo.definition}
+                          </p>
+                        </div>
+                        
+                        {categoryInfo.points.length > 0 && (
+                          <div className="mb-4">
+                            <h4 className="font-semibold text-gray-800 mb-2">重要ポイント：</h4>
+                            <ul className="space-y-2 text-sm text-gray-700">
+                              {categoryInfo.points.map((point, index) => (
+                                <li key={index} className="flex items-start">
+                                  <span className="text-blue-600 mr-2 mt-1">•</span>
+                                  <span>{point}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* サブカテゴリリスト */}
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-2">評価項目:</h4>
+                          <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                            {category.subcategories.map((subcategory) => (
+                              <li key={subcategory.name}>{subcategory.name}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* 特典セクション */}
