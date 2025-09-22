@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { parseExcelDataToJson } from './parser.js';
 
 const Welcome = ({ onNext }) => {
@@ -26,6 +26,15 @@ const Welcome = ({ onNext }) => {
   // 質問データと総問数
   const [surveyData, setSurveyData] = useState([]);
   const [totalQuestions, setTotalQuestions] = useState(0);
+  
+  // セクションナビゲーション用のref
+  const sectionRefs = {
+    background: useRef(null),
+    creation: useRef(null),
+    evaluation: useRef(null),
+    benefits: useRef(null),
+    start: useRef(null)
+  };
 
   // In development prefer relative path so Vite proxy forwards to local Functions.
   // In production use the explicit environment variable if provided.
@@ -79,6 +88,21 @@ const Welcome = ({ onNext }) => {
     setForm(prev => ({ ...prev, [name]: value }));
     // clear validation error for this field when user edits it
     setFieldErrors(prev => ({ ...prev, [name]: undefined }));
+  };
+
+  // セクションへのスクロール機能
+  const scrollToSection = (sectionKey) => {
+    const element = sectionRefs[sectionKey]?.current;
+    if (element) {
+      const headerOffset = 280; // ヘッダー（192px）、タブナビゲーション（60px）、マージン（28px）を考慮
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -268,8 +292,44 @@ const Welcome = ({ onNext }) => {
     <div className="h-full font-sans bg-gray-50">
       <div className="max-w-4xl mx-auto px-6 py-10">
 
+        {/* 固定タブナビゲーション */}
+        <div className="sticky top-48 z-50 bg-white border-b border-gray-200 shadow-sm mb-6 rounded-lg">
+          <div className="flex flex-wrap gap-2 p-4">
+            <button
+              onClick={() => scrollToSection('background')}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+            >
+              背景と目的
+            </button>
+            <button
+              onClick={() => scrollToSection('creation')}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+            >
+              本アセスメントの作成方法について
+            </button>
+            <button
+              onClick={() => scrollToSection('evaluation')}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+            >
+              評価軸について
+            </button>
+            <button
+              onClick={() => scrollToSection('benefits')}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+            >
+              ご協力いただいた企業向け特典
+            </button>
+            <button
+              onClick={() => scrollToSection('start')}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+            >
+              アセスメントを開始するにあたって
+            </button>
+          </div>
+        </div>
+
         {/* 背景と目的セクション */}
-        <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
+        <div ref={sectionRefs.background} className="bg-white p-8 rounded-lg shadow-sm mb-6">
           <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">背景と目的</h2>
           
           <div className="space-y-4 text-gray-700 leading-relaxed">
@@ -283,7 +343,7 @@ const Welcome = ({ onNext }) => {
         </div>
 
         {/* 本アセスメントの作成方法についてセクション */}
-        <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
+        <div ref={sectionRefs.creation} className="bg-white p-8 rounded-lg shadow-sm mb-6">
           <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">本アセスメントの作成方法について</h2>
           
           <div className="space-y-4 text-gray-700 leading-relaxed">
@@ -361,7 +421,7 @@ const Welcome = ({ onNext }) => {
         </div>
 
         {/* 評価軸について */}
-        <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
+        <div ref={sectionRefs.evaluation} className="bg-white p-8 rounded-lg shadow-sm mb-6">
           <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">評価軸について</h2>
           
           <div className="space-y-4 text-gray-700 leading-relaxed">
@@ -500,7 +560,7 @@ const Welcome = ({ onNext }) => {
         </div>
 
         {/* 特典セクション */}
-        <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
+        <div ref={sectionRefs.benefits} className="bg-white p-8 rounded-lg shadow-sm mb-6">
           <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">ご協力いただいた企業向け特典</h2>
           
           <div className="space-y-4">
@@ -543,7 +603,7 @@ const Welcome = ({ onNext }) => {
         </div>
 
         {/* アセスメント開始セクション */}
-        <div className="bg-white p-8 rounded-lg shadow-sm">
+        <div ref={sectionRefs.start} className="bg-white p-8 rounded-lg shadow-sm">
           <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">アセスメントを開始するにあたって</h2>
             <div className="text-gray-700 mb-6">
               <p className="mb-4">
