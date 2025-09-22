@@ -307,7 +307,7 @@ const Welcome = ({ onNext }) => {
               onClick={() => scrollToSection('creation')}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
             >
-              本アセスメントの作成方法１
+              本アセスメントの作成方法
             </button>
             <button
               onClick={() => scrollToSection('evaluation')}
