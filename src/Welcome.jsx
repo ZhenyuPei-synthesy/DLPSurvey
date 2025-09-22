@@ -19,7 +19,6 @@ const Welcome = ({ onNext }) => {
   const [showResumeForm, setShowResumeForm] = useState(false);
   const [resumeInputs, setResumeInputs] = useState({ answerNumber: '' });
   const [resumeError, setResumeError] = useState(null);
-  const [showEvaluationAxis, setShowEvaluationAxis] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
   // 免責事項とプライバシーポリシー関連
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -362,25 +361,14 @@ const Welcome = ({ onNext }) => {
         </div>
 
         {/* 評価軸について */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <button
-            onClick={() => setShowEvaluationAxis(!showEvaluationAxis)}
-            className="w-full flex items-center justify-between mb-6"
-          >
-            <h2 className="text-2xl font-bold">評価軸について</h2>
-            <svg
-              className={`w-6 h-6 transition-transform ${
-                showEvaluationAxis ? 'transform rotate-180' : ''
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+        <div className="bg-white p-8 rounded-lg shadow-sm mb-6">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900 border-b-2 border-[#5629AA] pb-2">評価軸について</h2>
           
-          {showEvaluationAxis && (
+          <div className="space-y-4 text-gray-700 leading-relaxed">
+            <p>
+              本アセスメントでは、AI時代の情報管理において重要となる7つの評価軸で現状を診断します。
+            </p>
+            
             <div>
               {surveyData.map((category) => {
                 // カテゴリごとの詳細説明を定義
@@ -508,7 +496,7 @@ const Welcome = ({ onNext }) => {
                 );
               })}
             </div>
-          )}
+          </div>
         </div>
 
         {/* 特典セクション */}
