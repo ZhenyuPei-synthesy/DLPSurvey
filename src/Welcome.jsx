@@ -96,7 +96,7 @@ const Welcome = ({ onNext }) => {
   const scrollToSection = (sectionKey) => {
     const element = sectionRefs[sectionKey]?.current;
     if (element) {
-      const headerOffset = 320; // ヘッダー（192px）、タブナビゲーション（60px）、マージン（68px）を考慮
+      const headerOffset = 260; // ヘッダー（192px）、タブナビゲーション（60px）、マージン（68px）を考慮
       const elementPosition = element.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
       
@@ -307,13 +307,13 @@ const Welcome = ({ onNext }) => {
               onClick={() => scrollToSection('creation')}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
             >
-              本アセスメントの作成方法について
+              本アセスメントの作成方法
             </button>
             <button
               onClick={() => scrollToSection('evaluation')}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
             >
-              評価軸について
+              評価軸
             </button>
             <button
               onClick={() => scrollToSection('maturity')}
@@ -325,13 +325,13 @@ const Welcome = ({ onNext }) => {
               onClick={() => scrollToSection('benefits')}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
             >
-              ご協力いただいた企業向け特典
+              回答特典
             </button>
             <button
               onClick={() => scrollToSection('start')}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
             >
-              アセスメントを開始するにあたって
+              アセスメント開始
             </button>
           </div>
         </div>
